@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>X アフィリエイト投稿ツール (PA-API版)</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -62,22 +61,11 @@
             padding: 20px 25px;
         }
         
-        .config-section h3 {
-            font-size: 14px;
-            color: #666;
-            margin-bottom: 15px;
-        }
-        
-        .config-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 15px;
-        }
-        
         .config-item {
             display: flex;
             flex-direction: column;
             gap: 5px;
+            max-width: 400px;
         }
         
         .config-item label {
@@ -150,8 +138,7 @@
         
         input[type="text"],
         input[type="search"],
-        select,
-        textarea {
+        select {
             width: 100%;
             padding: 12px;
             border: 2px solid #e1e8ed;
@@ -161,14 +148,8 @@
             font-family: inherit;
         }
         
-        textarea {
-            min-height: 80px;
-            resize: vertical;
-        }
-        
         input:focus,
-        select:focus,
-        textarea:focus {
+        select:focus {
             outline: none;
             border-color: #1d9bf0;
         }
@@ -221,17 +202,6 @@
         
         .btn-success:hover {
             background: #0d8968;
-        }
-        
-        .btn-outline {
-            background: white;
-            color: #1d9bf0;
-            border: 2px solid #1d9bf0;
-        }
-        
-        .btn-outline:hover {
-            background: #1d9bf0;
-            color: white;
         }
         
         .btn-warning {
@@ -528,10 +498,6 @@
         }
         
         @media (max-width: 768px) {
-            .config-grid {
-                grid-template-columns: 1fr;
-            }
-            
             .product-item {
                 flex-direction: column;
                 text-align: center;
@@ -566,25 +532,14 @@
     <div class="container">
         <div class="header">
             <h1>🐦 X アフィリエイト投稿ツール<span class="badge">PA-API版</span></h1>
-            <p>高精度な商品情報取得</p>
+            <p>高精度な商品情報取得 - Cloudflare Workers経由</p>
         </div>
         
-        <!-- PA-API設定 -->
+        <!-- 設定 -->
         <div class="config-section">
-            <h3>⚙️ PA-API設定（初回のみ）</h3>
-            <div class="config-grid">
-                <div class="config-item">
-                    <label>Access Key ID</label>
-                    <input type="text" id="accessKey" value="AKPAGG0QYK1769907220" placeholder="AKXXXXXXXXXX">
-                </div>
-                <div class="config-item">
-                    <label>Secret Access Key</label>
-                    <input type="text" id="secretKey" value="k/ed0eTP870pjcQRTTReQozWozSSFLfcJ2wiztBu" placeholder="Your secret key">
-                </div>
-                <div class="config-item">
-                    <label>Associate Tag</label>
-                    <input type="text" id="associateTag" value="raida5963-22" placeholder="yourname-22">
-                </div>
+            <div class="config-item">
+                <label>🏷️ Associate Tag</label>
+                <input type="text" id="associateTag" value="raida5963-22" placeholder="yourname-22">
             </div>
         </div>
         
@@ -617,7 +572,7 @@
             <div class="info" id="info-search"></div>
             
             <div id="bulk-actions-search" class="bulk-actions" style="display: none;">
-                <button class="btn btn-warning" onclick="startBulkPost('search')" id="postAll-search">
+                <button class="btn btn-warning" onclick="startBulkPost('search')">
                     🚀 順番に投稿
                 </button>
                 <button class="btn btn-danger" onclick="resetPosted('search')">
@@ -637,7 +592,8 @@
                 • 正確な価格取得（ほぼ100%）<br>
                 • 高画質な商品画像<br>
                 • 詳細なレビュー情報<br>
-                • 高速な取得速度
+                • 高速な取得速度<br>
+                • 🔒 安全（Secret Keyは公開されません）
             </div>
         </div>
         
@@ -678,7 +634,7 @@
             <div class="info" id="info-ranking"></div>
             
             <div id="bulk-actions-ranking" class="bulk-actions" style="display: none;">
-                <button class="btn btn-warning" onclick="startBulkPost('ranking')" id="postAll-ranking">
+                <button class="btn btn-warning" onclick="startBulkPost('ranking')">
                     🚀 順番に投稿
                 </button>
                 <button class="btn btn-danger" onclick="resetPosted('ranking')">
@@ -721,6 +677,9 @@
     </div>
     
     <script>
+        // Cloudflare Workers エンドポイント
+        const WORKER_URL = 'https://amazon-paapi-proxy.carpe-diem-miya.workers.dev';
+        
         let currentProducts = {
             search: [],
             ranking: []
@@ -739,14 +698,10 @@
         };
         
         window.onload = function() {
-            // 設定をローカルストレージから復元
-            const savedAccessKey = localStorage.getItem('paapi_accessKey');
-            const savedSecretKey = localStorage.getItem('paapi_secretKey');
             const savedTag = localStorage.getItem('paapi_tag');
-            
-            if (savedAccessKey) document.getElementById('accessKey').value = savedAccessKey;
-            if (savedSecretKey) document.getElementById('secretKey').value = savedSecretKey;
-            if (savedTag) document.getElementById('associateTag').value = savedTag;
+            if (savedTag) {
+                document.getElementById('associateTag').value = savedTag;
+            }
         };
         
         function switchTab(tabName) {
@@ -762,15 +717,9 @@
         }
         
         function saveConfig() {
-            const accessKey = document.getElementById('accessKey').value.trim();
-            const secretKey = document.getElementById('secretKey').value.trim();
             const tag = document.getElementById('associateTag').value.trim();
-            
-            localStorage.setItem('paapi_accessKey', accessKey);
-            localStorage.setItem('paapi_secretKey', secretKey);
             localStorage.setItem('paapi_tag', tag);
-            
-            return { accessKey, secretKey, tag };
+            return { tag };
         }
         
         async function shortenUrl(longUrl) {
@@ -785,123 +734,30 @@
             return longUrl;
         }
         
-        // AWS署名v4を生成
-        function generateAWSSignature(method, host, path, queryParams, headers, payload, accessKey, secretKey, region, service) {
-            const algorithm = 'AWS4-HMAC-SHA256';
-            const now = new Date();
-            const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
-            const dateStamp = amzDate.substr(0, 8);
-            
-            // Canonical Request
-            const canonicalUri = path;
-            const canonicalQuerystring = Object.keys(queryParams)
-                .sort()
-                .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)
-                .join('&');
-            
-            const canonicalHeaders = Object.keys(headers)
-                .sort()
-                .map(key => `${key.toLowerCase()}:${headers[key].trim()}\n`)
-                .join('');
-            
-            const signedHeaders = Object.keys(headers)
-                .sort()
-                .map(key => key.toLowerCase())
-                .join(';');
-            
-            const payloadHash = CryptoJS.SHA256(payload).toString(CryptoJS.enc.Hex);
-            
-            const canonicalRequest = [
-                method,
-                canonicalUri,
-                canonicalQuerystring,
-                canonicalHeaders,
-                signedHeaders,
-                payloadHash
-            ].join('\n');
-            
-            // String to Sign
-            const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
-            const stringToSign = [
-                algorithm,
-                amzDate,
-                credentialScope,
-                CryptoJS.SHA256(canonicalRequest).toString(CryptoJS.enc.Hex)
-            ].join('\n');
-            
-            // Signing Key
-            const kDate = CryptoJS.HmacSHA256(dateStamp, 'AWS4' + secretKey);
-            const kRegion = CryptoJS.HmacSHA256(region, kDate);
-            const kService = CryptoJS.HmacSHA256(service, kRegion);
-            const kSigning = CryptoJS.HmacSHA256('aws4_request', kService);
-            
-            // Signature
-            const signature = CryptoJS.HmacSHA256(stringToSign, kSigning).toString(CryptoJS.enc.Hex);
-            
-            // Authorization Header
-            const authorizationHeader = `${algorithm} Credential=${accessKey}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
-            
-            return {
-                authorization: authorizationHeader,
-                amzDate: amzDate
-            };
-        }
-        
         async function callPAAPI(operation, params) {
-            const config = saveConfig();
-            
-            if (!config.accessKey || !config.secretKey || !config.tag) {
-                throw new Error('PA-API設定が不完全です。Access Key、Secret Key、Associate Tagを入力してください。');
+            try {
+                const response = await fetch(WORKER_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        operation: operation,
+                        params: params
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('PA-API Error:', errorText);
+                    throw new Error(`PA-API Error: ${response.status}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('Worker Error:', error);
+                throw error;
             }
-            
-            const host = 'webservices.amazon.co.jp';
-            const region = 'us-west-2';
-            const service = 'ProductAdvertisingAPI';
-            const path = '/paapi5/' + operation.toLowerCase();
-            
-            const payload = JSON.stringify({
-                ...params,
-                PartnerTag: config.tag,
-                PartnerType: 'Associates',
-                Marketplace: 'www.amazon.co.jp'
-            });
-            
-            const headers = {
-                'content-encoding': 'amz-1.0',
-                'content-type': 'application/json; charset=utf-8',
-                'host': host,
-                'x-amz-target': `com.amazon.paapi5.v1.ProductAdvertisingAPIv1.${operation}`
-            };
-            
-            const { authorization, amzDate } = generateAWSSignature(
-                'POST',
-                host,
-                path,
-                {},
-                headers,
-                payload,
-                config.accessKey,
-                config.secretKey,
-                region,
-                service
-            );
-            
-            headers['authorization'] = authorization;
-            headers['x-amz-date'] = amzDate;
-            
-            const response = await fetch(`https://${host}${path}`, {
-                method: 'POST',
-                headers: headers,
-                body: payload
-            });
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('PA-API Error:', errorText);
-                throw new Error(`PA-API Error: ${response.status} ${response.statusText}`);
-            }
-            
-            return await response.json();
         }
         
         async function searchProducts() {
@@ -911,6 +767,8 @@
                 showError('search', '検索キーワードを入力してください');
                 return;
             }
+            
+            saveConfig();
             
             document.getElementById('search-loading').style.display = 'block';
             document.getElementById('search-results').innerHTML = '';
@@ -946,7 +804,7 @@
                     if (item.Offers?.Listings && item.Offers.Listings.length > 0) {
                         const listing = item.Offers.Listings[0];
                         if (listing.Price) {
-                            price = `${listing.Price.Amount}円`;
+                            price = `${listing.Price.Amount.toLocaleString()}円`;
                         }
                     }
                     
@@ -962,8 +820,7 @@
                         imageUrl: imageUrl,
                         title: title,
                         price: price,
-                        rating: rating,
-                        discount: ''
+                        rating: rating
                     };
                 });
                 
@@ -984,6 +841,8 @@
         
         async function fetchBestsellers() {
             const category = document.getElementById('category').value;
+            
+            saveConfig();
             
             document.getElementById('ranking-loading').style.display = 'block';
             document.getElementById('product-list').innerHTML = '';
@@ -1019,7 +878,7 @@
                     if (item.Offers?.Listings && item.Offers.Listings.length > 0) {
                         const listing = item.Offers.Listings[0];
                         if (listing.Price) {
-                            price = `${listing.Price.Amount}円`;
+                            price = `${listing.Price.Amount.toLocaleString()}円`;
                         }
                     }
                     
@@ -1035,8 +894,7 @@
                         imageUrl: imageUrl,
                         title: title,
                         price: price,
-                        rating: rating,
-                        discount: ''
+                        rating: rating
                     };
                 });
                 
