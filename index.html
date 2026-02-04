@@ -621,6 +621,7 @@
             <button class="tab" onclick="switchTab('trending')">💡 人気ワード</button>
             <button class="tab" onclick="switchTab('detailed')">⚡ 価格取得強化</button>
             <button class="tab" onclick="switchTab('ranking')">📊 ランキング</button>
+            <button class="tab" onclick="switchTab('auto')">🤖 自動投稿</button>
         </div>
         
         <!-- URL指定タブ -->
@@ -956,6 +957,94 @@
                     ❌ 中止
                 </button>
             </div>
+        </div>
+    </div>
+    
+    <!-- 自動投稿タブ -->
+    <div id="auto-tab" class="tab-content">
+        <div class="form-group">
+            <label>🏷️ アソシエイトタグ</label>
+            <input type="text" id="tag-auto" placeholder="yourname-22" value="">
+        </div>
+
+        <div class="form-group">
+            <label>📝 キーワードリスト（1行1キーワード）</label>
+            <textarea id="keyword-list" placeholder="ワイヤレスイヤホン&#10;スマートウォッチ&#10;モバイルバッテリー" style="min-height: 150px;"></textarea>
+            <small style="color: #666; font-size: 12px;">💡 空欄の場合は「人気ワード」から自動取得します</small>
+        </div>
+
+        <div class="form-group">
+            <label>⏱️ 投稿間隔（分）</label>
+            <input type="number" id="post-interval" value="30" min="1" max="1440">
+            <small style="color: #666; font-size: 12px;">推奨: 30分以上（X のスパム判定回避）</small>
+        </div>
+
+        <div class="form-group">
+            <label>🔢 1キーワードあたりの投稿数</label>
+            <input type="number" id="posts-per-keyword" value="3" min="1" max="10">
+        </div>
+
+        <div class="form-group">
+            <label style="display: flex; align-items: center; gap: 10px;">
+                <input type="checkbox" id="auto-use-trending" checked style="width: auto;">
+                キーワードリストが空の場合、人気ワードを自動取得
+            </label>
+        </div>
+
+        <div class="form-group">
+            <label style="display: flex; align-items: center; gap: 10px;">
+                <input type="checkbox" id="auto-skip-no-price" checked style="width: auto;">
+                価格取得失敗の商品はスキップ
+            </label>
+        </div>
+
+        <div id="auto-status" style="display: none; background: #e3f2fd; border: 2px solid #90caf9; padding: 15px; border-radius: 8px; margin: 15px 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <strong style="color: #1565c0;">🤖 自動投稿実行中</strong>
+                <span id="auto-timer" style="font-size: 18px; font-weight: 700; color: #1d9bf0;">--:--</span>
+            </div>
+            <div style="font-size: 13px; color: #666; line-height: 1.8;">
+                <div>📊 総投稿数: <strong id="stat-total">0</strong> | 成功: <strong id="stat-success" style="color: #10a37f;">0</strong> | 失敗: <strong id="stat-failed" style="color: #f44336;">0</strong></div>
+                <div>🔑 現在のキーワード: <strong id="current-keyword">-</strong></div>
+                <div>📦 次の投稿: <strong id="next-post-info">-</strong></div>
+                <div style="margin-top: 10px; padding: 8px; background: white; border-radius: 5px;">
+                    <div style="font-size: 11px; color: #999; margin-bottom: 3px;">進捗</div>
+                    <div style="background: #e0e0e0; height: 8px; border-radius: 4px; overflow: hidden;">
+                        <div id="progress-bar" style="background: linear-gradient(90deg, #1d9bf0, #10a37f); height: 100%; width: 0%; transition: width 0.3s;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button class="btn btn-success" onclick="autoPoster.start()" id="auto-start-btn">🚀 自動投稿を開始</button>
+            <button class="btn btn-danger" onclick="autoPoster.stop()" id="auto-stop-btn" style="display: none;">⏹️ 停止</button>
+        </div>
+
+        <div class="error" id="error-auto"></div>
+        <div class="success" id="success-auto"></div>
+
+        <div id="auto-log" style="margin-top: 20px; max-height: 300px; overflow-y: auto; background: #f7f9fa; border: 2px solid #e1e8ed; border-radius: 8px; padding: 15px; font-size: 12px; font-family: monospace; display: none;">
+            <div style="font-weight: 600; margin-bottom: 10px; color: #333;">📋 実行ログ</div>
+            <div id="log-content"></div>
+        </div>
+
+        <div class="tips">
+            <strong>🤖 自動投稿の仕組み：</strong><br>
+            1. キーワードリストから順番に検索<br>
+            2. 各キーワードで商品を取得（Workers版 - 価格取得率95-100%）<br>
+            3. 指定した間隔で自動投稿<br>
+            4. 全キーワード完了後、最初に戻る（ループ）<br><br>
+            <strong>⚠️ 注意事項：</strong><br>
+            • ブラウザタブを閉じると停止します<br>
+            • PCをスリープすると停止します<br>
+            • 30分以上の間隔を推奨（スパム判定回避）<br>
+            • 投稿はXの投稿画面が開くので、手動で「投稿」ボタンを押してください<br><br>
+            <strong>💡 ヒント：</strong><br>
+            • キーワードは5-10個程度が最適<br>
+            • 夜間は自動停止することを推奨<br>
+            • 定期的にログを確認してください<br>
+            • 文字数は180文字以内に自動調整されます（安全マージン100文字）
         </div>
     </div>
     
@@ -2869,498 +2958,391 @@
                 searchProducts();
             }
         });
-    </script>
-
-<script>
-// ========================================
-// 🤖 自動投稿マネージャー
-// ========================================
-
-class AutoPosterManager {
-    constructor() {
-        this.isRunning = false;
-        this.currentKeywordIndex = 0;
-        this.currentProductIndex = 0;
-        this.keywords = [];
-        this.interval = 30;
-        this.nextPostTime = null;
-        this.timerId = null;
-        this.stats = {
-            totalPosts: 0,
-            successPosts: 0,
-            failedPosts: 0,
-            startTime: null
-        };
-    }
-
-    initUI() {
-        const tabsContainer = document.querySelector('.tabs');
-        const autoTab = document.createElement('button');
-        autoTab.className = 'tab';
-        autoTab.textContent = '🤖 自動投稿';
-        autoTab.onclick = () => switchTab('auto');
-        tabsContainer.appendChild(autoTab);
-
-        const container = document.querySelector('.container');
-        const autoTabHTML = `
-            <div id="auto-tab" class="tab-content">
-                <div class="form-group">
-                    <label>🏷️ アソシエイトタグ</label>
-                    <input type="text" id="tag-auto" placeholder="yourname-22" value="">
-                </div>
-
-                <div class="form-group">
-                    <label>📝 キーワードリスト（1行1キーワード）</label>
-                    <textarea id="keyword-list" placeholder="ワイヤレスイヤホン&#10;スマートウォッチ&#10;モバイルバッテリー" style="min-height: 150px;"></textarea>
-                    <small style="color: #666; font-size: 12px;">💡 空欄の場合は「人気ワード」から自動取得します</small>
-                </div>
-
-                <div class="form-group">
-                    <label>⏱️ 投稿間隔（分）</label>
-                    <input type="number" id="post-interval" value="30" min="1" max="1440">
-                    <small style="color: #666; font-size: 12px;">推奨: 30分以上（X のスパム判定回避）</small>
-                </div>
-
-                <div class="form-group">
-                    <label>🔢 1キーワードあたりの投稿数</label>
-                    <input type="number" id="posts-per-keyword" value="3" min="1" max="10">
-                </div>
-
-                <div class="form-group">
-                    <label style="display: flex; align-items: center; gap: 10px;">
-                        <input type="checkbox" id="auto-use-trending" checked style="width: auto;">
-                        キーワードリストが空の場合、人気ワードを自動取得
-                    </label>
-                </div>
-
-                <div class="form-group">
-                    <label style="display: flex; align-items: center; gap: 10px;">
-                        <input type="checkbox" id="auto-skip-no-price" checked style="width: auto;">
-                        価格取得失敗の商品はスキップ
-                    </label>
-                </div>
-
-                <div id="auto-status" style="display: none; background: #e3f2fd; border: 2px solid #90caf9; padding: 15px; border-radius: 8px; margin: 15px 0;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <strong style="color: #1565c0;">🤖 自動投稿実行中</strong>
-                        <span id="auto-timer" style="font-size: 18px; font-weight: 700; color: #1d9bf0;">--:--</span>
-                    </div>
-                    <div style="font-size: 13px; color: #666; line-height: 1.8;">
-                        <div>📊 総投稿数: <strong id="stat-total">0</strong> | 成功: <strong id="stat-success" style="color: #10a37f;">0</strong> | 失敗: <strong id="stat-failed" style="color: #f44336;">0</strong></div>
-                        <div>🔑 現在のキーワード: <strong id="current-keyword">-</strong></div>
-                        <div>📦 次の投稿: <strong id="next-post-info">-</strong></div>
-                        <div style="margin-top: 10px; padding: 8px; background: white; border-radius: 5px;">
-                            <div style="font-size: 11px; color: #999; margin-bottom: 3px;">進捗</div>
-                            <div style="background: #e0e0e0; height: 8px; border-radius: 4px; overflow: hidden;">
-                                <div id="progress-bar" style="background: linear-gradient(90deg, #1d9bf0, #10a37f); height: 100%; width: 0%; transition: width 0.3s;"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="button-group">
-                    <button class="btn btn-success" onclick="autoPoster.start()" id="auto-start-btn">🚀 自動投稿を開始</button>
-                    <button class="btn btn-danger" onclick="autoPoster.stop()" id="auto-stop-btn" style="display: none;">⏹️ 停止</button>
-                </div>
-
-                <div class="error" id="error-auto"></div>
-                <div class="success" id="success-auto"></div>
-
-                <div id="auto-log" style="margin-top: 20px; max-height: 300px; overflow-y: auto; background: #f7f9fa; border: 2px solid #e1e8ed; border-radius: 8px; padding: 15px; font-size: 12px; font-family: monospace; display: none;">
-                    <div style="font-weight: 600; margin-bottom: 10px; color: #333;">📋 実行ログ</div>
-                    <div id="log-content"></div>
-                </div>
-
-                <div class="tips">
-                    <strong>🤖 自動投稿の仕組み：</strong><br>
-                    1. キーワードリストから順番に検索<br>
-                    2. 各キーワードで商品を取得（価格取得強化モード）<br>
-                    3. 指定した間隔で自動投稿<br>
-                    4. 全キーワード完了後、最初に戻る（ループ）<br><br>
-                    <strong>⚠️ 注意事項：</strong><br>
-                    • ブラウザタブを閉じると停止します<br>
-                    • PCをスリープすると停止します<br>
-                    • 30分以上の間隔を推奨（スパム判定回避）<br>
-                    • 投稿はXの投稿画面が開くので、手動で「投稿」ボタンを押してください<br><br>
-                    <strong>💡 ヒント：</strong><br>
-                    • キーワードは5-10個程度が最適<br>
-                    • 夜間は自動停止することを推奨<br>
-                    • 定期的にログを確認してください
-                </div>
-            </div>
-        `;
-
-        container.insertAdjacentHTML('beforeend', autoTabHTML);
-
-        const savedTag = localStorage.getItem('amazonTag');
-        if (savedTag) {
-            document.getElementById('tag-auto').value = savedTag;
-        }
-
-        this.loadSettings();
-    }
-
-    saveSettings() {
-        const settings = {
-            keywords: document.getElementById('keyword-list').value,
-            interval: document.getElementById('post-interval').value,
-            postsPerKeyword: document.getElementById('posts-per-keyword').value,
-            useTrending: document.getElementById('auto-use-trending').checked,
-            skipNoPrice: document.getElementById('auto-skip-no-price').checked
-        };
-        localStorage.setItem('autoPosterSettings', JSON.stringify(settings));
-    }
-
-    loadSettings() {
-        const saved = localStorage.getItem('autoPosterSettings');
-        if (saved) {
-            const settings = JSON.parse(saved);
-            document.getElementById('keyword-list').value = settings.keywords || '';
-            document.getElementById('post-interval').value = settings.interval || 30;
-            document.getElementById('posts-per-keyword').value = settings.postsPerKeyword || 3;
-            if (settings.useTrending !== undefined) {
-                document.getElementById('auto-use-trending').checked = settings.useTrending;
-            }
-            if (settings.skipNoPrice !== undefined) {
-                document.getElementById('auto-skip-no-price').checked = settings.skipNoPrice;
-            }
-        }
-    }
-
-    log(message, type = 'info') {
-        const logContent = document.getElementById('log-content');
-        const logContainer = document.getElementById('auto-log');
-        logContainer.style.display = 'block';
-
-        const timestamp = new Date().toLocaleTimeString('ja-JP');
-        const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️';
-        const color = type === 'success' ? '#10a37f' : type === 'error' ? '#f44336' : type === 'warning' ? '#ff9800' : '#666';
-
-        const logEntry = document.createElement('div');
-        logEntry.style.color = color;
-        logEntry.style.marginBottom = '5px';
-        logEntry.textContent = `[${timestamp}] ${icon} ${message}`;
-
-        logContent.appendChild(logEntry);
-        logContent.scrollTop = logContent.scrollHeight;
-    }
-
-    async start() {
-        const tag = document.getElementById('tag-auto').value.trim();
-        if (!tag) {
-            showError('auto', 'アソシエイトタグを入力してください');
-            return;
-        }
-
-        localStorage.setItem('amazonTag', tag);
-        this.saveSettings();
-
-        const keywordText = document.getElementById('keyword-list').value.trim();
-        if (keywordText) {
-            this.keywords = keywordText.split('\n').map(k => k.trim()).filter(k => k);
-        } else if (document.getElementById('auto-use-trending').checked) {
-            await this.loadTrendingKeywords();
-        }
-
-        if (this.keywords.length === 0) {
-            showError('auto', 'キーワードを入力するか、人気ワード自動取得を有効にしてください');
-            return;
-        }
-
-        this.isRunning = true;
-        this.currentKeywordIndex = 0;
-        this.currentProductIndex = 0;
-        this.interval = parseInt(document.getElementById('post-interval').value);
-        this.stats = {
-            totalPosts: 0,
-            successPosts: 0,
-            failedPosts: 0,
-            startTime: new Date()
-        };
-
-        document.getElementById('auto-start-btn').style.display = 'none';
-        document.getElementById('auto-stop-btn').style.display = 'block';
-        document.getElementById('auto-status').style.display = 'block';
-        document.getElementById('keyword-list').disabled = true;
-        document.getElementById('post-interval').disabled = true;
-        document.getElementById('posts-per-keyword').disabled = true;
-
-        this.log(`自動投稿を開始しました（キーワード数: ${this.keywords.length}）`, 'success');
-        this.log(`投稿間隔: ${this.interval}分`, 'info');
-
-        await this.processNext();
-    }
-
-    stop() {
-        this.isRunning = false;
-        if (this.timerId) {
-            clearTimeout(this.timerId);
-            this.timerId = null;
-        }
-
-        document.getElementById('auto-start-btn').style.display = 'block';
-        document.getElementById('auto-stop-btn').style.display = 'none';
-        document.getElementById('auto-status').style.display = 'none';
-        document.getElementById('keyword-list').disabled = false;
-        document.getElementById('post-interval').disabled = false;
-        document.getElementById('posts-per-keyword').disabled = false;
-
-        const duration = Math.floor((new Date() - this.stats.startTime) / 1000 / 60);
-        this.log(`自動投稿を停止しました（実行時間: ${duration}分）`, 'warning');
-        this.log(`総投稿数: ${this.stats.totalPosts} | 成功: ${this.stats.successPosts} | 失敗: ${this.stats.failedPosts}`, 'info');
-    }
-
-    async loadTrendingKeywords() {
-        this.log('人気ワードを取得中...', 'info');
-        try {
-            const keywords = await fetchTrendingKeywords();
-            this.keywords = keywords.slice(0, 10);
-            this.log(`人気ワードを${this.keywords.length}個取得しました`, 'success');
-        } catch (error) {
-            this.log('人気ワード取得失敗 - デフォルトリスト使用', 'warning');
-            this.keywords = [
-                'ワイヤレスイヤホン', 'スマートウォッチ', 'モバイルバッテリー',
-                'Bluetoothスピーカー', 'ゲーミングマウス', 'USB充電器',
-                'スマホケース', 'ワイヤレス充電器', 'PCマウス', 'キーボード'
-            ];
-        }
-    }
-
-    async processNext() {
-        if (!this.isRunning) return;
-
-        const keyword = this.keywords[this.currentKeywordIndex];
-        const postsPerKeyword = parseInt(document.getElementById('posts-per-keyword').value);
-
-        this.log(`キーワード「${keyword}」で検索中...`, 'info');
-        document.getElementById('current-keyword').textContent = keyword;
-
-        try {
-            const products = await this.searchProducts(keyword);
-
-            if (products.length === 0) {
-                this.log(`商品が見つかりませんでした: ${keyword}`, 'warning');
-                this.moveToNextKeyword();
-                this.scheduleNext();
-                return;
+        
+        // ========================================
+        // 🤖 自動投稿マネージャー（Workers API対応版）
+        // ========================================
+        
+        class AutoPosterManager {
+            constructor() {
+                this.isRunning = false;
+                this.currentKeywordIndex = 0;
+                this.currentProductIndex = 0;
+                this.keywords = [];
+                this.currentProducts = [];
+                this.interval = 30;
+                this.nextPostTime = null;
+                this.timerId = null;
+                this.stats = {
+                    totalPosts: 0,
+                    successPosts: 0,
+                    failedPosts: 0,
+                    startTime: null
+                };
             }
 
-            const skipNoPrice = document.getElementById('auto-skip-no-price').checked;
-            const validProducts = skipNoPrice 
-                ? products.filter(p => p.price && p.price !== '価格取得失敗')
-                : products;
-
-            if (validProducts.length === 0) {
-                this.log(`価格取得できた商品がありません: ${keyword}`, 'warning');
-                this.moveToNextKeyword();
-                this.scheduleNext();
-                return;
+            saveSettings() {
+                const settings = {
+                    keywords: document.getElementById('keyword-list').value,
+                    interval: document.getElementById('post-interval').value,
+                    postsPerKeyword: document.getElementById('posts-per-keyword').value,
+                    useTrending: document.getElementById('auto-use-trending').checked,
+                    skipNoPrice: document.getElementById('auto-skip-no-price').checked
+                };
+                localStorage.setItem('autoPosterSettings', JSON.stringify(settings));
             }
 
-            const product = validProducts[this.currentProductIndex % validProducts.length];
-            const postText = this.generatePostText(product, keyword);
-
-            this.openTwitterPost(postText);
-
-            this.stats.totalPosts++;
-            this.stats.successPosts++;
-            this.updateStats();
-
-            this.log(`投稿しました: ${product.title.substring(0, 30)}...`, 'success');
-
-            this.currentProductIndex++;
-
-            if (this.currentProductIndex >= postsPerKeyword) {
-                this.moveToNextKeyword();
-            }
-
-            this.scheduleNext();
-
-        } catch (error) {
-            this.log(`エラー: ${error.message}`, 'error');
-            this.stats.failedPosts++;
-            this.updateStats();
-            this.scheduleNext();
-        }
-    }
-
-    moveToNextKeyword() {
-        this.currentProductIndex = 0;
-        this.currentKeywordIndex++;
-
-        if (this.currentKeywordIndex >= this.keywords.length) {
-            this.currentKeywordIndex = 0;
-            this.log('全キーワード完了 - 最初に戻ります', 'info');
-        }
-    }
-
-    scheduleNext() {
-        if (!this.isRunning) return;
-
-        this.nextPostTime = new Date(Date.now() + this.interval * 60 * 1000);
-        document.getElementById('next-post-info').textContent = this.nextPostTime.toLocaleTimeString('ja-JP');
-
-        this.startCountdown();
-
-        this.timerId = setTimeout(() => {
-            this.processNext();
-        }, this.interval * 60 * 1000);
-    }
-
-    startCountdown() {
-        const updateTimer = () => {
-            if (!this.isRunning || !this.nextPostTime) return;
-
-            const now = new Date();
-            const diff = Math.max(0, this.nextPostTime - now);
-            const minutes = Math.floor(diff / 1000 / 60);
-            const seconds = Math.floor((diff / 1000) % 60);
-
-            document.getElementById('auto-timer').textContent = 
-                `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-
-            if (diff > 0) {
-                setTimeout(updateTimer, 1000);
-            }
-        };
-        updateTimer();
-    }
-
-    updateStats() {
-        document.getElementById('stat-total').textContent = this.stats.totalPosts;
-        document.getElementById('stat-success').textContent = this.stats.successPosts;
-        document.getElementById('stat-failed').textContent = this.stats.failedPosts;
-
-        const totalKeywords = this.keywords.length;
-        const postsPerKeyword = parseInt(document.getElementById('posts-per-keyword').value);
-        const totalPosts = totalKeywords * postsPerKeyword;
-        const progress = Math.min(100, (this.stats.successPosts / totalPosts) * 100);
-        document.getElementById('progress-bar').style.width = progress + '%';
-    }
-
-    async searchProducts(keyword) {
-        const tag = document.getElementById('tag-auto').value.trim();
-        const searchUrl = `https://www.amazon.co.jp/s?k=${encodeURIComponent(keyword)}`;
-
-        try {
-            const html = await fetchWithWorker(searchUrl);
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-
-            const items = doc.querySelectorAll('[data-component-type="s-search-result"]');
-            const products = [];
-
-            for (let i = 0; i < Math.min(5, items.length); i++) {
-                const item = items[i];
-                const asin = item.getAttribute('data-asin');
-                if (!asin) continue;
-
-                const titleEl = item.querySelector('h2 a span');
-                const title = titleEl ? titleEl.textContent.trim() : '';
-
-                const imageEl = item.querySelector('img.s-image');
-                const image = imageEl ? imageEl.src : '';
-
-                let price = '価格取得失敗';
-                try {
-                    const detailUrl = `https://www.amazon.co.jp/dp/${asin}`;
-                    const detailHtml = await fetchWithWorker(detailUrl);
-                    const detailDoc = new DOMParser().parseFromString(detailHtml, 'text/html');
-
-                    const priceSelectors = [
-                        '.a-price .a-offscreen',
-                        '#priceblock_ourprice',
-                        '#priceblock_dealprice',
-                        '.a-price-whole'
-                    ];
-
-                    for (const selector of priceSelectors) {
-                        const priceEl = detailDoc.querySelector(selector);
-                        if (priceEl && priceEl.textContent.includes('¥')) {
-                            price = priceEl.textContent.trim();
-                            break;
+            loadSettings() {
+                const saved = localStorage.getItem('autoPosterSettings');
+                if (saved) {
+                    try {
+                        const settings = JSON.parse(saved);
+                        document.getElementById('keyword-list').value = settings.keywords || '';
+                        document.getElementById('post-interval').value = settings.interval || 30;
+                        document.getElementById('posts-per-keyword').value = settings.postsPerKeyword || 3;
+                        if (settings.useTrending !== undefined) {
+                            document.getElementById('auto-use-trending').checked = settings.useTrending;
                         }
+                        if (settings.skipNoPrice !== undefined) {
+                            document.getElementById('auto-skip-no-price').checked = settings.skipNoPrice;
+                        }
+                    } catch (e) {
+                        console.error('設定の読み込みエラー:', e);
                     }
-                } catch (e) {
-                    console.error('価格取得エラー:', e);
+                }
+            }
+
+            log(message, type = 'info') {
+                const logContent = document.getElementById('log-content');
+                const logContainer = document.getElementById('auto-log');
+                logContainer.style.display = 'block';
+
+                const timestamp = new Date().toLocaleTimeString('ja-JP');
+                const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️';
+                const color = type === 'success' ? '#10a37f' : type === 'error' ? '#f44336' : type === 'warning' ? '#ff9800' : '#666';
+
+                const logEntry = document.createElement('div');
+                logEntry.style.color = color;
+                logEntry.style.marginBottom = '5px';
+                logEntry.textContent = `[${timestamp}] ${icon} ${message}`;
+
+                logContent.appendChild(logEntry);
+                logContent.scrollTop = logContent.scrollHeight;
+            }
+
+            async start() {
+                const tag = document.getElementById('tag-auto').value.trim();
+                if (!tag) {
+                    showError('auto', 'アソシエイトタグを入力してください');
+                    return;
                 }
 
-                const affiliateUrl = `https://www.amazon.co.jp/dp/${asin}?tag=${tag}`;
+                localStorage.setItem('amazonTag', tag);
+                this.saveSettings();
 
-                products.push({
-                    asin,
-                    title,
-                    price,
-                    image,
-                    url: affiliateUrl
-                });
+                const keywordText = document.getElementById('keyword-list').value.trim();
+                if (keywordText) {
+                    this.keywords = keywordText.split('\n').map(k => k.trim()).filter(k => k);
+                } else if (document.getElementById('auto-use-trending').checked) {
+                    await this.loadTrendingKeywords();
+                }
 
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                if (this.keywords.length === 0) {
+                    showError('auto', 'キーワードを入力するか、人気ワード自動取得を有効にしてください');
+                    return;
+                }
+
+                this.isRunning = true;
+                this.currentKeywordIndex = 0;
+                this.currentProductIndex = 0;
+                this.interval = parseInt(document.getElementById('post-interval').value);
+                this.stats = {
+                    totalPosts: 0,
+                    successPosts: 0,
+                    failedPosts: 0,
+                    startTime: new Date()
+                };
+
+                document.getElementById('auto-start-btn').style.display = 'none';
+                document.getElementById('auto-stop-btn').style.display = 'block';
+                document.getElementById('auto-status').style.display = 'block';
+                document.getElementById('keyword-list').disabled = true;
+                document.getElementById('post-interval').disabled = true;
+                document.getElementById('posts-per-keyword').disabled = true;
+
+                this.log(`自動投稿を開始しました（キーワード数: ${this.keywords.length}）`, 'success');
+                this.log(`投稿間隔: ${this.interval}分`, 'info');
+
+                await this.processNext();
             }
 
-            return products;
+            stop() {
+                this.isRunning = false;
+                if (this.timerId) {
+                    clearTimeout(this.timerId);
+                    this.timerId = null;
+                }
 
-        } catch (error) {
-            throw new Error(`商品検索失敗: ${error.message}`);
+                document.getElementById('auto-start-btn').style.display = 'block';
+                document.getElementById('auto-stop-btn').style.display = 'none';
+                document.getElementById('auto-status').style.display = 'none';
+                document.getElementById('keyword-list').disabled = false;
+                document.getElementById('post-interval').disabled = false;
+                document.getElementById('posts-per-keyword').disabled = false;
+
+                const duration = Math.floor((new Date() - this.stats.startTime) / 1000 / 60);
+                this.log(`自動投稿を停止しました（実行時間: ${duration}分）`, 'warning');
+                this.log(`総投稿数: ${this.stats.totalPosts} | 成功: ${this.stats.successPosts} | 失敗: ${this.stats.failedPosts}`, 'info');
+            }
+
+            async loadTrendingKeywords() {
+                this.log('人気ワードを取得中...', 'info');
+                try {
+                    // loadDefaultKeywords を呼び出してデフォルトキーワードを取得
+                    this.keywords = defaultTrendingKeywords.slice(0, 10);
+                    this.log(`人気ワードを${this.keywords.length}個取得しました`, 'success');
+                } catch (error) {
+                    this.log('人気ワード取得失敗 - デフォルトリスト使用', 'warning');
+                    this.keywords = [
+                        'ボンボンドロップシール', 'チョコレート効果', 'プロテインバー',
+                        'ワイヤレスイヤホン', 'モバイルバッテリー', 'USB充電器',
+                        'マスク', '除菌シート', 'エナジードリンク', 'ミックスナッツ'
+                    ];
+                }
+            }
+
+            async processNext() {
+                if (!this.isRunning) return;
+
+                const keyword = this.keywords[this.currentKeywordIndex];
+                const postsPerKeyword = parseInt(document.getElementById('posts-per-keyword').value);
+
+                this.log(`キーワード「${keyword}」で検索中...`, 'info');
+                document.getElementById('current-keyword').textContent = keyword;
+
+                try {
+                    // 新しい商品を取得する必要がある場合
+                    if (this.currentProductIndex === 0 || this.currentProducts.length === 0) {
+                        const products = await this.searchProductsWithWorkers(keyword);
+                        
+                        if (products.length === 0) {
+                            this.log(`商品が見つかりませんでした: ${keyword}`, 'warning');
+                            this.moveToNextKeyword();
+                            this.scheduleNext();
+                            return;
+                        }
+
+                        const skipNoPrice = document.getElementById('auto-skip-no-price').checked;
+                        this.currentProducts = skipNoPrice 
+                            ? products.filter(p => p.price && p.price !== '価格取得失敗' && p.price !== '')
+                            : products;
+
+                        if (this.currentProducts.length === 0) {
+                            this.log(`価格取得できた商品がありません: ${keyword}`, 'warning');
+                            this.moveToNextKeyword();
+                            this.scheduleNext();
+                            return;
+                        }
+                    }
+
+                    const product = this.currentProducts[this.currentProductIndex % this.currentProducts.length];
+                    const postText = this.generatePostText(product);
+
+                    this.openTwitterPost(postText);
+
+                    this.stats.totalPosts++;
+                    this.stats.successPosts++;
+                    this.updateStats();
+
+                    this.log(`投稿しました: ${product.title.substring(0, 30)}...`, 'success');
+
+                    this.currentProductIndex++;
+
+                    if (this.currentProductIndex >= postsPerKeyword) {
+                        this.moveToNextKeyword();
+                    }
+
+                    this.scheduleNext();
+
+                } catch (error) {
+                    this.log(`エラー: ${error.message}`, 'error');
+                    this.stats.failedPosts++;
+                    this.updateStats();
+                    this.scheduleNext();
+                }
+            }
+
+            moveToNextKeyword() {
+                this.currentProductIndex = 0;
+                this.currentProducts = [];
+                this.currentKeywordIndex++;
+
+                if (this.currentKeywordIndex >= this.keywords.length) {
+                    this.currentKeywordIndex = 0;
+                    this.log('全キーワード完了 - 最初に戻ります', 'info');
+                }
+            }
+
+            scheduleNext() {
+                if (!this.isRunning) return;
+
+                this.nextPostTime = new Date(Date.now() + this.interval * 60 * 1000);
+                document.getElementById('next-post-info').textContent = this.nextPostTime.toLocaleTimeString('ja-JP');
+
+                this.startCountdown();
+
+                this.timerId = setTimeout(() => {
+                    this.processNext();
+                }, this.interval * 60 * 1000);
+            }
+
+            startCountdown() {
+                const updateTimer = () => {
+                    if (!this.isRunning || !this.nextPostTime) return;
+
+                    const now = new Date();
+                    const diff = Math.max(0, this.nextPostTime - now);
+                    const minutes = Math.floor(diff / 1000 / 60);
+                    const seconds = Math.floor((diff / 1000) % 60);
+
+                    document.getElementById('auto-timer').textContent = 
+                        `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+                    if (diff > 0) {
+                        setTimeout(updateTimer, 1000);
+                    }
+                };
+                updateTimer();
+            }
+
+            updateStats() {
+                document.getElementById('stat-total').textContent = this.stats.totalPosts;
+                document.getElementById('stat-success').textContent = this.stats.successPosts;
+                document.getElementById('stat-failed').textContent = this.stats.failedPosts;
+
+                const totalKeywords = this.keywords.length;
+                const postsPerKeyword = parseInt(document.getElementById('posts-per-keyword').value);
+                const totalPosts = totalKeywords * postsPerKeyword;
+                const progress = Math.min(100, (this.stats.successPosts / totalPosts) * 100);
+                document.getElementById('progress-bar').style.width = progress + '%';
+            }
+
+            async searchProductsWithWorkers(keyword) {
+                const tag = document.getElementById('tag-auto').value.trim();
+                const searchUrl = `https://www.amazon.co.jp/s?k=${encodeURIComponent(keyword)}`;
+
+                this.log(`検索URL: ${searchUrl}`, 'info');
+
+                try {
+                    // Workers APIで検索結果を取得
+                    const response = await fetch(`${WORKER_URL}?url=${encodeURIComponent(searchUrl)}`);
+                    if (!response.ok) {
+                        throw new Error(`Worker error: ${response.status}`);
+                    }
+                    
+                    const html = await response.text();
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+
+                    const items = doc.querySelectorAll('[data-component-type="s-search-result"]');
+                    const products = [];
+
+                    this.log(`${items.length}件の商品を発見`, 'info');
+
+                    // 最大5商品まで処理
+                    for (let i = 0; i < Math.min(5, items.length); i++) {
+                        const item = items[i];
+                        const asin = item.getAttribute('data-asin');
+                        if (!asin) continue;
+
+                        const titleEl = item.querySelector('h2 a span');
+                        const title = titleEl ? titleEl.textContent.trim() : '';
+
+                        const imageEl = item.querySelector('img.s-image');
+                        const image = imageEl ? imageEl.src : '';
+
+                        // Workers APIで詳細情報（価格）を取得
+                        let price = '';
+                        try {
+                            const detailUrl = `https://www.amazon.co.jp/dp/${asin}`;
+                            const detailResponse = await fetch(WORKER_URL, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({ url: detailUrl })
+                            });
+
+                            if (detailResponse.ok) {
+                                const data = await detailResponse.json();
+                                price = data.price || '';
+                                this.log(`${title.substring(0, 20)}... → ${price}`, 'info');
+                            }
+                        } catch (e) {
+                            this.log(`価格取得失敗: ${asin}`, 'warning');
+                        }
+
+                        const affiliateUrl = `https://www.amazon.co.jp/dp/${asin}?tag=${tag}`;
+
+                        products.push({
+                            asin,
+                            title,
+                            price,
+                            image,
+                            url: affiliateUrl
+                        });
+
+                        // レート制限回避
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
+
+                    return products;
+
+                } catch (error) {
+                    this.log(`検索エラー: ${error.message}`, 'error');
+                    return [];
+                }
+            }
+
+            generatePostText(product) {
+                const tag = document.getElementById('tag-auto').value.trim();
+                
+                // 短縮URL作成
+                let shortUrl = product.url;
+                try {
+                    const asin = extractASIN(product.url);
+                    shortUrl = `https://www.amazon.co.jp/dp/${asin}?tag=${tag}`;
+                } catch (e) {
+                    console.error('URL生成エラー:', e);
+                }
+
+                // createSimplePostText関数を使用（180文字制限対応）
+                const info = {
+                    title: product.title,
+                    price: product.price,
+                    rating: '',
+                    discount: ''
+                };
+                
+                const postText = createSimplePostText(info, shortUrl, 'twitter');
+                
+                return postText;
+            }
+
+            openTwitterPost(text) {
+                const encodedText = encodeURIComponent(text);
+                const twitterUrl = `https://twitter.com/intent/tweet?text=${encodedText}`;
+                window.open(twitterUrl, '_blank', 'width=600,height=400');
+            }
         }
-    }
 
-    generatePostText(product, keyword) {
-        const hashtags = this.generateHashtags(keyword);
-
-        let text = `PR Amazonで${product.title}が${product.price}で販売中。\n${product.url}\n\n${hashtags}`;
-
-        if (text.length > 280) {
-            const maxTitleLength = 280 - text.length + product.title.length - 10;
-            const shortTitle = product.title.substring(0, maxTitleLength) + '...';
-            text = `PR Amazonで${shortTitle}が${product.price}で販売中。\n${product.url}\n\n${hashtags}`;
-        }
-
-        return text;
-    }
-
-    generateHashtags(keyword) {
-        const tags = ['#Amazon', '#お得情報'];
-
-        if (keyword.includes('イヤホン') || keyword.includes('ヘッドホン')) {
-            tags.push('#オーディオ');
-        } else if (keyword.includes('スマート') || keyword.includes('ガジェット')) {
-            tags.push('#ガジェット');
-        } else if (keyword.includes('ゲーム')) {
-            tags.push('#ゲーム');
-        } else if (keyword.includes('充電')) {
-            tags.push('#充電器');
-        }
-
-        return tags.join(' ');
-    }
-
-    openTwitterPost(text) {
-        const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
-        window.open(twitterUrl, '_blank', 'width=600,height=400');
-    }
-}
-
-const autoPoster = new AutoPosterManager();
-
-window.addEventListener('load', () => {
-    setTimeout(() => {
-        autoPoster.initUI();
-    }, 500);
-});
-
-async function fetchWithWorker(url) {
-    try {
-        const response = await fetch(`${WORKER_URL}?url=${encodeURIComponent(url)}`);
-        if (!response.ok) throw new Error('Workers API エラー');
-        const data = await response.json();
-        return data.html;
-    } catch (error) {
-        console.error('Workers API失敗、フォールバック:', error);
-        return await fetchWithProxy(url);
-    }
-}
-</script>
-
+        // AutoPosterManagerのインスタンスを作成
+        const autoPoster = new AutoPosterManager();
+        
+        // ページ読み込み時に設定をロード
+        window.addEventListener('load', function() {
+            autoPoster.loadSettings();
+        });
+    </script>
 </body>
 </html>
