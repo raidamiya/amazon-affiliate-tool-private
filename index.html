@@ -3234,37 +3234,26 @@
                 this.log(`検索URL: ${searchUrl}`, 'info');
 
                 try {
-                    // Workers APIで検索結果を取得
-                    const response = await fetch(`${WORKER_URL}?url=${encodeURIComponent(searchUrl)}`);
-                    if (!response.ok) {
-                        throw new Error(`Worker error: ${response.status}`);
-                    }
+                    // 既存のscrapeSearchResults関数を使用（価格取得強化タブと同じロジック）
+                    const basicProducts = await scrapeSearchResults(searchUrl);
                     
-                    const html = await response.text();
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(html, 'text/html');
+                    if (basicProducts.length === 0) {
+                        this.log('商品が見つかりませんでした', 'warning');
+                        return [];
+                    }
 
-                    const items = doc.querySelectorAll('[data-component-type="s-search-result"]');
+                    this.log(`${basicProducts.length}件の商品を発見`, 'info');
+
                     const products = [];
 
-                    this.log(`${items.length}件の商品を発見`, 'info');
-
                     // 最大5商品まで処理
-                    for (let i = 0; i < Math.min(5, items.length); i++) {
-                        const item = items[i];
-                        const asin = item.getAttribute('data-asin');
-                        if (!asin) continue;
-
-                        const titleEl = item.querySelector('h2 a span');
-                        const title = titleEl ? titleEl.textContent.trim() : '';
-
-                        const imageEl = item.querySelector('img.s-image');
-                        const image = imageEl ? imageEl.src : '';
-
+                    for (let i = 0; i < Math.min(5, basicProducts.length); i++) {
+                        const product = basicProducts[i];
+                        
                         // Workers APIで詳細情報（価格）を取得
                         let price = '';
                         try {
-                            const detailUrl = `https://www.amazon.co.jp/dp/${asin}`;
+                            const detailUrl = `https://www.amazon.co.jp/dp/${product.asin}`;
                             const detailResponse = await fetch(WORKER_URL, {
                                 method: 'POST',
                                 headers: {
@@ -3276,24 +3265,24 @@
                             if (detailResponse.ok) {
                                 const data = await detailResponse.json();
                                 price = data.price || '';
-                                this.log(`${title.substring(0, 20)}... → ${price}`, 'info');
+                                this.log(`${product.title.substring(0, 20)}... → ${price}`, 'info');
                             }
                         } catch (e) {
-                            this.log(`価格取得失敗: ${asin}`, 'warning');
+                            this.log(`価格取得失敗: ${product.asin}`, 'warning');
                         }
 
-                        const affiliateUrl = `https://www.amazon.co.jp/dp/${asin}?tag=${tag}`;
+                        const affiliateUrl = `https://www.amazon.co.jp/dp/${product.asin}?tag=${tag}`;
 
                         products.push({
-                            asin,
-                            title,
-                            price,
-                            image,
+                            asin: product.asin,
+                            title: product.title,
+                            price: price,
+                            image: product.imageUrl,
                             url: affiliateUrl
                         });
 
                         // レート制限回避
-                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        await new Promise(resolve => setTimeout(resolve, 2000));
                     }
 
                     return products;
