@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>X アフィリエイト投稿ツール（Workers版） v3.1</title>
+    <title>X アフィリエイト投稿ツール（Workers版） v3.2</title>
 
     <style>
         * {
@@ -239,7 +239,7 @@
             <h1>
                 🐦 X アフィリエイト投稿ツール
                 <span style="background:#10a37f;padding:3px 8px;border-radius:4px;font-size:12px;">Workers版</span>
-                <span style="background:#ff6b6b;padding:3px 8px;border-radius:4px;font-size:12px;margin-left:5px;">v3.1</span>
+                <span style="background:#ff6b6b;padding:3px 8px;border-radius:4px;font-size:12px;margin-left:5px;">v3.2</span>
             </h1>
             <p>高精度な価格取得 × AI宣伝文生成 × 自動投稿</p>
         </div>
@@ -1256,6 +1256,89 @@ ${tags}`;
                 return parts[0] || null;
             }
 
+            /* ============================
+            v3.2 カテゴリ別ランキングURL
+            ============================ */
+            const amazonRankingCategories = [
+                { name: "ホーム＆キッチン", url: "https://www.amazon.co.jp/gp/bestsellers/kitchen" },
+                { name: "食品", url: "https://www.amazon.co.jp/gp/bestsellers/food-beverage" },
+                { name: "本", url: "https://www.amazon.co.jp/gp/bestsellers/books" },
+                { name: "Kindle本", url: "https://www.amazon.co.jp/gp/bestsellers/digital-text" },
+                { name: "おもちゃ", url: "https://www.amazon.co.jp/gp/bestsellers/toys" },
+                { name: "ファッション", url: "https://www.amazon.co.jp/gp/bestsellers/fashion" },
+                { name: "文房具", url: "https://www.amazon.co.jp/gp/bestsellers/office-products" },
+                { name: "ビューティー", url: "https://www.amazon.co.jp/gp/bestsellers/beauty" },
+                { name: "パソコン・ガジェット", url: "https://www.amazon.co.jp/gp/bestsellers/computers" },
+                { name: "ペット", url: "https://www.amazon.co.jp/gp/bestsellers/pet-supplies" },
+                { name: "ゲーム", url: "https://www.amazon.co.jp/gp/bestsellers/videogames" }
+            ];
+
+            /* ============================
+            v3.2 カテゴリ別ランキング → 低価格帯キーワード抽出
+            ============================ */
+            async function getLowPriceKeywordsFromCategory(categoryUrl, limit = 3) {
+                const html = await fetchWithProxy(categoryUrl);
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, "text/html");
+
+                const items = doc.querySelectorAll("li[data-asin], .zg-grid-general-faceout");
+                const keywords = [];
+
+                for (let i = 0; i < items.length; i++) {
+                    const asin = items[i].getAttribute("data-asin");
+                    if (!asin) continue;
+
+                    const detailUrl = `https://www.amazon.co.jp/dp/${asin}`;
+                    const detailHtml = await fetchWithProxy(detailUrl);
+                    const detailDoc = parser.parseFromString(detailHtml, "text/html");
+
+                    const titleElem = detailDoc.querySelector("#productTitle");
+                    const title = titleElem ? titleElem.textContent.trim() : null;
+                    if (!title) continue;
+
+                    const priceElem = detailDoc.querySelector(".a-price .a-offscreen");
+                    let price = 999999;
+                    if (priceElem) {
+                        const m = priceElem.textContent.match(/[\d,]+/);
+                        if (m) price = parseInt(m[0].replace(/,/g, ""));
+                    }
+
+                    // 低価格帯フィルタ（〜2000円）
+                    if (price <= 2000) {
+                        const keyword = extractKeywordFromTitle(title);
+                        if (keyword && !keywords.includes(keyword)) {
+                            keywords.push(keyword);
+                        }
+                    }
+
+                    if (keywords.length >= limit) break;
+
+                    await new Promise(r => setTimeout(r, 1500)); // Amazonに優しいウェイト
+                }
+
+                return keywords;
+            }
+
+            /* ============================
+            v3.2 10カテゴリ × 3ワード = 30ワード生成（ランダム並び）
+            ============================ */
+            async function get30TrendingKeywords() {
+                const allKeywords = [];
+
+                for (const cat of amazonRankingCategories) {
+                    const kws = await getLowPriceKeywordsFromCategory(cat.url, 3);
+                    allKeywords.push(...kws);
+                }
+
+                // 重複削除
+                const unique = [...new Set(allKeywords)];
+
+                // ランダムシャッフル
+                const shuffled = unique.sort(() => Math.random() - 0.5);
+
+                // 30個に調整
+                return shuffled.slice(0, 30);
+            }
 
         /* ============================================================
         🤖 AutoPosterManager v2.8（AI統合 × 完全自動化）
@@ -1309,20 +1392,20 @@ ${tags}`;
                 // -----------------------------
                 // ① キーワードリストが空 → Amazonランキングから取得
                 // -----------------------------
+                // ① キーワードリストが空 → Amazonランキングから取得
                 if (!keywordText && useTrending) {
-                    this.log("📊 Amazonランキングから人気ワード取得中...", "info");
+                    this.log("📊 カテゴリ別ランキングから人気ワード取得中...", "info");
 
-                    let keywords = await getTrendingKeywordsFromAmazon(10);
+                    const keywords = await get30TrendingKeywords();
 
                     if (keywords.length === 0) {
-                        this.log("⚠️ ランキング取得に失敗。デフォルトワードを使用します", "warning");
-                        keywords = getBalancedRandomKeywords(10);
+                        this.log("⚠️ 人気ワード取得に失敗。デフォルトワードを使用します", "warning");
+                        this.keywords = getBalancedRandomKeywords(10);
+                    } else {
+                        this.keywords = keywords;
+                        this.log(`✨ 人気ワード ${keywords.length} 件を取得しました`, "success");
                     }
-
-                    this.keywords = keywords;
-                    this.log(`✨ 人気ワード ${keywords.length} 件を取得しました`, "success");
-
-                } else {
+                }else {
                     // -----------------------------
                     // ② 通常のキーワードリストを使用
                     // -----------------------------
