@@ -1399,11 +1399,10 @@ ${tags}`;
                     const keywords = await get30TrendingKeywords();
 
                     if (keywords.length === 0) {
-                        this.log("⚠️ 人気ワード取得に失敗。デフォルトワードを使用します", "warning");
-                        this.keywords = getBalancedRandomKeywords(10);
+                        this.log("⚠️ 人気ワード取得に失敗。ランキングが空でした", "warning");
+                        this.keywords = [];
                     } else {
                         this.keywords = keywords;
-                        this.log(`✨ 人気ワード ${keywords.length} 件を取得しました`, "success");
                     }
                 }else {
                     // -----------------------------
