@@ -1407,6 +1407,90 @@ ${tags}`;
                 return parseInt(m[0].replace(/,/g, ""));
             }
 
+            /* ============================
+            v4.0 Amazon ベストセラー RSS（安定版）
+            ============================ */
+            const amazonRSSCategories = [
+                { name: "ホーム＆キッチン", url: "https://www.amazon.co.jp/gp/rss/bestsellers/kitchen" },
+                { name: "食品", url: "https://www.amazon.co.jp/gp/rss/bestsellers/food-beverage" },
+                { name: "本", url: "https://www.amazon.co.jp/gp/rss/bestsellers/books" },
+                { name: "Kindle本", url: "https://www.amazon.co.jp/gp/rss/bestsellers/digital-text" },
+                { name: "おもちゃ", url: "https://www.amazon.co.jp/gp/rss/bestsellers/toys" },
+                { name: "ファッション", url: "https://www.amazon.co.jp/gp/rss/bestsellers/fashion" },
+                { name: "文房具", url: "https://www.amazon.co.jp/gp/rss/bestsellers/office-products" },
+                { name: "ビューティー", url: "https://www.amazon.co.jp/gp/rss/bestsellers/beauty" },
+                { name: "パソコン・ガジェット", url: "https://www.amazon.co.jp/gp/rss/bestsellers/computers" },
+                { name: "ペット", url: "https://www.amazon.co.jp/gp/rss/bestsellers/pet-supplies" },
+                { name: "ゲーム", url: "https://www.amazon.co.jp/gp/rss/bestsellers/videogames" }
+            ];
+
+            /* ============================
+            v4.0 RSS → ASIN & タイトル取得
+            ============================ */
+            async function getRankingFromRSS(rssUrl, maxItems = 20) {
+                const xmlText = await fetchWithProxy(rssUrl);
+                const parser = new DOMParser();
+                const xml = parser.parseFromString(xmlText, "text/xml");
+
+                const items = xml.querySelectorAll("item");
+                const results = [];
+
+                for (let i = 0; i < items.length && results.length < maxItems; i++) {
+                    const title = items[i].querySelector("title")?.textContent?.trim();
+                    const link = items[i].querySelector("link")?.textContent?.trim();
+
+                    if (!title || !link) continue;
+
+                    // ASIN 抽出
+                    const asinMatch = link.match(/\/dp\/([A-Z0-9]{10})/);
+                    if (!asinMatch) continue;
+
+                    results.push({
+                        asin: asinMatch[1],
+                        title
+                    });
+                }
+
+                return results;
+            }
+
+
+            /* ============================
+            v4.0 30ワード生成（RSS × 詳細ページ）
+            ============================ */
+            async function get30TrendingKeywords() {
+                const allCandidates = [];
+
+                // ① RSS から ASIN & タイトルを大量取得
+                for (const cat of amazonRSSCategories) {
+                    const items = await getRankingFromRSS(cat.url, 20);
+                    allCandidates.push(...items);
+                }
+
+                // ② ランダムに 30件だけ詳細ページを取得
+                const shuffled = allCandidates.sort(() => Math.random() - 0.5);
+                const selected = shuffled.slice(0, 30);
+
+                const keywords = [];
+
+                for (const item of selected) {
+                    const price = await getPriceFromDetailPage(item.asin);
+
+                    // ③ 価格フィルタ（〜1500円）
+                    if (price && price <= 1500) {
+                        const kw = extractKeywordFromTitle(item.title);
+                        if (kw && !keywords.includes(kw)) {
+                            keywords.push(kw);
+                        }
+                    }
+
+                    await new Promise(r => setTimeout(r, 1500)); // Amazonに優しいウェイト
+                }
+
+                // ④ ランダム並び
+                return keywords.sort(() => Math.random() - 0.5).slice(0, 30);
+            }
+            
         /* ============================================================
         🤖 AutoPosterManager v2.8（AI統合 × 完全自動化）
         ============================================================ */
@@ -1616,34 +1700,30 @@ ${tags}`;
                 v3.0 安定版プロンプト
                 ============================ */
                 const prompt = `
-            あなたは日本のSNSマーケティング専門家です。
-            以下の商品情報を基に、X（Twitter）向けの宣伝文を1つだけ生成してください。
+                あなたは日本のSNSマーケティング専門家です。
+                以下の商品情報を基に、X（Twitter）向けの宣伝文を1つだけ生成してください。
 
-            【商品名】
-            ${product.title}
+                【商品名】
+                ${product.title}
 
-            【価格】
-            ${product.price || "価格情報なし"}
+                【短縮URL】
+                ${shortUrl}
 
-            【短縮URL】
-            ${shortUrl}
+                【厳守ルール】
+                - 出力は「宣伝文のみ」。説明・前置き・分析は禁止。
+                - 商品名を必ず1回以上含める
+                - 価格を文章に含めてはいけない（推測禁止）
+                - 箇条書きには ✔ を使用
+                - 絵文字は 2〜4 個
+                - ハッシュタグは日本語を優先し、#Amazon を含めて 2〜4 個
+                - 英語タグは禁止
+                - ハッシュタグの前には必ず半角スペースを入れる
+                - 180 文字以内
+                - URL は文末に置く
+                - 宣伝文以外の文章を一切出力しない
 
-            【厳守ルール】
-            - 出力は「宣伝文のみ」。説明・前置き・分析は禁止。
-            - 商品名を必ず1回以上含める（省略禁止）
-            - 箇条書きには ✔ を使用
-            - 絵文字は 2〜4 個
-            - ハッシュタグは日本語を優先し、#Amazon を含めて 2〜4 個
-            - 英語タグ（例: #Bath, #FastDry）は禁止
-            - 使用可能な日本語タグ例：
-            #Amazon #タオル #生活用品 #日用品 #便利グッズ #吸水タオル #速乾タオル
-            - ハッシュタグの前には必ず半角スペースを入れる（例: " #Amazon"）
-            - 180 文字以内
-            - URL は文末に置く（最後の行）
-            - 宣伝文以外の文章を一切出力しない
-
-            【出力形式】
-            宣伝文のみをそのまま出力。
+                【出力形式】
+                宣伝文のみをそのまま出力。
                 `.trim();
 
                 try {
