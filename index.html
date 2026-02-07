@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>X アフィリエイト投稿ツール（Workers版） v3.3</title>
+    <title>X アフィリエイト投稿ツール（Workers版） v3.4</title>
 
     <style>
         * {
@@ -239,7 +239,7 @@
             <h1>
                 🐦 X アフィリエイト投稿ツール
                 <span style="background:#10a37f;padding:3px 8px;border-radius:4px;font-size:12px;">Workers版</span>
-                <span style="background:#ff6b6b;padding:3px 8px;border-radius:4px;font-size:12px;margin-left:5px;">v3.3</span>
+                <span style="background:#ff6b6b;padding:3px 8px;border-radius:4px;font-size:12px;margin-left:5px;">v3.4</span>
             </h1>
             <p>高精度な価格取得 × AI宣伝文生成 × 自動投稿</p>
         </div>
@@ -1322,24 +1322,89 @@ ${tags}`;
             }
 
             /* ============================
-            v3.3 10カテゴリ × 3ワード = 30ワード生成（高速・安定）
+            v3.4 30ワード生成（安定版）
             ============================ */
             async function get30TrendingKeywords() {
-                const allKeywords = [];
+                const allCandidates = [];
 
+                // ① ランキングページから ASIN & タイトルを大量取得
                 for (const cat of amazonRankingCategories) {
-                    const kws = await getLowPriceKeywordsFromCategory(cat.url, 3);
-                    allKeywords.push(...kws);
+                    const items = await getRankingItems(cat.url, 20);
+                    allCandidates.push(...items);
                 }
 
-                // 重複削除
-                const unique = [...new Set(allKeywords)];
+                // ② ランダムに 30件だけ詳細ページを取得
+                const shuffled = allCandidates.sort(() => Math.random() - 0.5);
+                const selected = shuffled.slice(0, 30);
 
-                // ランダムシャッフル
-                const shuffled = unique.sort(() => Math.random() - 0.5);
+                const keywords = [];
 
-                // 30個に調整
-                return shuffled.slice(0, 30);
+                for (const item of selected) {
+                    const price = await getPriceFromDetailPage(item.asin);
+
+                    // ③ 価格フィルタ（〜1500円）
+                    if (price && price <= 1500) {
+                        const kw = extractKeywordFromTitle(item.title);
+                        if (kw && !keywords.includes(kw)) {
+                            keywords.push(kw);
+                        }
+                    }
+
+                    // Amazonに優しいウェイト
+                    await new Promise(r => setTimeout(r, 1500));
+                }
+
+                // ④ ランダム並び
+                return keywords.sort(() => Math.random() - 0.5).slice(0, 30);
+            }
+
+            /* ============================
+            v3.4 ランキングページ → ASIN & タイトル大量取得
+            ============================ */
+            async function getRankingItems(categoryUrl, maxItems = 20) {
+                const html = await fetchWithProxy(categoryUrl);
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, "text/html");
+
+                const items = doc.querySelectorAll("li[data-asin], .zg-grid-general-faceout");
+                const results = [];
+
+                for (let i = 0; i < items.length && results.length < maxItems; i++) {
+                    const asin = items[i].getAttribute("data-asin");
+                    if (!asin) continue;
+
+                    const titleElem =
+                        items[i].querySelector("img")?.getAttribute("alt") ||
+                        items[i].querySelector("div > a > span") ||
+                        items[i].querySelector("h2, h3");
+
+                    if (!titleElem) continue;
+
+                    const title = (titleElem.textContent || titleElem).trim();
+
+                    results.push({ asin, title });
+                }
+
+                return results;
+            }
+
+
+            /* ============================
+            v3.4 詳細ページ → 価格取得
+            ============================ */
+            async function getPriceFromDetailPage(asin) {
+                const url = `https://www.amazon.co.jp/dp/${asin}`;
+                const html = await fetchWithProxy(url);
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, "text/html");
+
+                const priceElem = doc.querySelector(".a-price .a-offscreen");
+                if (!priceElem) return null;
+
+                const m = priceElem.textContent.match(/[\d,]+/);
+                if (!m) return null;
+
+                return parseInt(m[0].replace(/,/g, ""));
             }
 
         /* ============================================================
