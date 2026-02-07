@@ -1274,7 +1274,7 @@ ${tags}`;
             ];
 
             /* ============================
-            v3.2 カテゴリ別ランキング → 低価格帯キーワード抽出
+            v3.3 ランキングページのみで低価格帯キーワード抽出（高速・安定）
             ============================ */
             async function getLowPriceKeywordsFromCategory(categoryUrl, limit = 3) {
                 const html = await fetchWithProxy(categoryUrl);
@@ -1288,16 +1288,20 @@ ${tags}`;
                     const asin = items[i].getAttribute("data-asin");
                     if (!asin) continue;
 
-                    const detailUrl = `https://www.amazon.co.jp/dp/${asin}`;
-                    const detailHtml = await fetchWithProxy(detailUrl);
-                    const detailDoc = parser.parseFromString(detailHtml, "text/html");
+                    // タイトル（ランキングページから取得）
+                    const titleElem =
+                        items[i].querySelector("img")?.getAttribute("alt") ||
+                        items[i].querySelector("div > a > span") ||
+                        items[i].querySelector("h2, h3");
 
-                    const titleElem = detailDoc.querySelector("#productTitle");
-                    const title = titleElem ? titleElem.textContent.trim() : null;
-                    if (!title) continue;
+                    if (!titleElem) continue;
 
-                    const priceElem = detailDoc.querySelector(".a-price .a-offscreen");
+                    const title = (titleElem.textContent || titleElem).trim();
+
+                    // 価格（ランキングページから取得）
+                    const priceElem = items[i].querySelector(".a-price .a-offscreen");
                     let price = 999999;
+
                     if (priceElem) {
                         const m = priceElem.textContent.match(/[\d,]+/);
                         if (m) price = parseInt(m[0].replace(/,/g, ""));
@@ -1312,21 +1316,19 @@ ${tags}`;
                     }
 
                     if (keywords.length >= limit) break;
-
-                    await new Promise(r => setTimeout(r, 1500)); // Amazonに優しいウェイト
                 }
 
                 return keywords;
             }
 
             /* ============================
-            v3.2 10カテゴリ × 3ワード = 30ワード生成（ランダム並び）
+            v3.3 10カテゴリ × 3ワード = 30ワード生成（高速・安定）
             ============================ */
             async function get30TrendingKeywords() {
                 const allKeywords = [];
 
                 for (const cat of amazonRankingCategories) {
-                    const kws = await getLowPriceKeywordsFromCategory(cat.url, 1);
+                    const kws = await getLowPriceKeywordsFromCategory(cat.url, 3);
                     allKeywords.push(...kws);
                 }
 
@@ -1337,7 +1339,7 @@ ${tags}`;
                 const shuffled = unique.sort(() => Math.random() - 0.5);
 
                 // 30個に調整
-                return shuffled.slice(0, 10);
+                return shuffled.slice(0, 30);
             }
 
         /* ============================================================
@@ -1393,6 +1395,7 @@ ${tags}`;
                 // ① キーワードリストが空 → Amazonランキングから取得
                 // -----------------------------
                 // ① キーワードリストが空 → Amazonランキングから取得
+                // ① キーワードリストが空 → Amazonランキングから取得
                 if (!keywordText && useTrending) {
                     this.log("📊 カテゴリ別ランキングから人気ワード取得中...", "info");
 
@@ -1403,6 +1406,7 @@ ${tags}`;
                         this.keywords = [];
                     } else {
                         this.keywords = keywords;
+                        this.log(`✨ 人気ワード ${keywords.length} 件を取得しました`, "success");
                     }
                 }else {
                     // -----------------------------
