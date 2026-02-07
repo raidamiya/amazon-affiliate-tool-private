@@ -1326,7 +1326,7 @@ ${tags}`;
                 const allKeywords = [];
 
                 for (const cat of amazonRankingCategories) {
-                    const kws = await getLowPriceKeywordsFromCategory(cat.url, 3);
+                    const kws = await getLowPriceKeywordsFromCategory(cat.url, 1);
                     allKeywords.push(...kws);
                 }
 
@@ -1337,7 +1337,7 @@ ${tags}`;
                 const shuffled = unique.sort(() => Math.random() - 0.5);
 
                 // 30個に調整
-                return shuffled.slice(0, 30);
+                return shuffled.slice(0, 10);
             }
 
         /* ============================================================
