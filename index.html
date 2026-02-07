@@ -1428,21 +1428,18 @@ ${tags}`;
                 }
             }
 
-                    /* ------------------------------------
+             /* ------------------------------------
             投稿文生成（AI ON/OFF 切り替え対応）
             ------------------------------------ */
             async generatePostText(product) {
                 const useAI = document.getElementById("auto-use-ai").checked;
                 const tag = document.getElementById("tag-auto").value.trim();
 
-                // ASIN → アフィリエイトURL
                 const asin = extractASIN(product.url);
                 const affiliateUrl = `https://www.amazon.co.jp/dp/${asin}?tag=${tag}`;
                 const shortUrl = await shortenUrl(affiliateUrl);
 
-                // -----------------------------
-                // ① AIを使う場合（OpenRouter）
-                // -----------------------------
+                // AIを使う場合
                 if (useAI) {
                     const apiKey = localStorage.getItem("openrouterApiKey");
                     const model = document.getElementById("openrouter-model").value || "openrouter/free";
@@ -1452,7 +1449,28 @@ ${tags}`;
                         return null;
                     }
 
-                    const prompt = createAIPrompt_v27(product.url, shortUrl);
+                    // 商品名・価格をプロンプトに含める（重要）
+                    const prompt = `
+            以下の商品について、X向けの宣伝文を180文字以内で作成してください。
+
+            【商品名】
+            ${product.title}
+
+            【価格】
+            ${product.price || "価格情報なし"}
+
+            【商品URL】
+            ${product.url}
+
+            【短縮URL】
+            ${shortUrl}
+
+            【ルール】
+            - 箇条書きに✔を使用
+            - 絵文字2〜4個
+            - #Amazon を含む2〜4個のハッシュタグ
+            - URLは文末
+                    `.trim();
 
                     try {
                         const aiText = await callOpenRouterAPI(apiKey, prompt, model);
@@ -1463,9 +1481,7 @@ ${tags}`;
                     }
                 }
 
-                // -----------------------------
-                // ② AIを使わない場合（従来の投稿文）
-                // -----------------------------
+                // AIを使わない場合
                 const info = {
                     title: product.title,
                     price: product.price || "",
@@ -1477,7 +1493,7 @@ ${tags}`;
             }
 
             /* ------------------------------------
-            Workers版 Amazon検索
+            Workers版 Amazon検索（商品詳細ページで補完）
             ------------------------------------ */
             async searchProductsWithWorkers(keyword) {
                 const url = `https://www.amazon.co.jp/s?k=${encodeURIComponent(keyword)}`;
@@ -1493,14 +1509,30 @@ ${tags}`;
                     const asin = items[i].getAttribute("data-asin");
                     if (!asin) continue;
 
-                    const titleElem = items[i].querySelector("h2 a span");
+                    // 商品詳細ページを再取得（ここが重要）
+                    const detailUrl = `https://www.amazon.co.jp/dp/${asin}`;
+                    const detailHtml = await fetchWithProxy(detailUrl);
+                    const detailDoc = parser.parseFromString(detailHtml, "text/html");
+
+                    const titleElem = detailDoc.querySelector("#productTitle");
                     const title = titleElem ? titleElem.textContent.trim() : "商品名不明";
+
+                    const priceElem = detailDoc.querySelector(".a-price .a-offscreen");
+                    let price = "";
+                    if (priceElem) {
+                        const m = priceElem.textContent.match(/[\d,]+/);
+                        if (m) price = parseInt(m[0].replace(/,/g, "")) + "円";
+                    }
 
                     results.push({
                         asin,
                         title,
-                        url: `https://www.amazon.co.jp/dp/${asin}`
+                        price,
+                        url: detailUrl
                     });
+
+                    // Amazonに優しいウェイト
+                    await new Promise(r => setTimeout(r, 1500));
                 }
 
                 return results;
