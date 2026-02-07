@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>X アフィリエイト投稿ツール（Workers版） v2.8.2</title>
+    <title>X アフィリエイト投稿ツール（Workers版） v2.9</title>
 
     <style>
         * {
@@ -239,7 +239,7 @@
             <h1>
                 🐦 X アフィリエイト投稿ツール
                 <span style="background:#10a37f;padding:3px 8px;border-radius:4px;font-size:12px;">Workers版</span>
-                <span style="background:#ff6b6b;padding:3px 8px;border-radius:4px;font-size:12px;margin-left:5px;">v2.8.2</span>
+                <span style="background:#ff6b6b;padding:3px 8px;border-radius:4px;font-size:12px;margin-left:5px;">v2.9</span>
             </h1>
             <p>高精度な価格取得 × AI宣伝文生成 × 自動投稿</p>
         </div>
@@ -561,7 +561,7 @@
 
         <div id="ai-tab" class="tab-content">
             <div class="info-box" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                <strong>✨ AI自動生成（v2.7 最適化版）</strong><br>
+                <strong>✨ AI自動生成（v2.9 最適化版）</strong><br>
                 商品URLを入力すると、AIが180文字以内の宣伝文を生成します。
             </div>
 
@@ -1428,8 +1428,8 @@ ${tags}`;
                 }
             }
 
-             /* ------------------------------------
-            投稿文生成（AI ON/OFF 切り替え対応）
+            /* ------------------------------------
+            generatePostText() v2.9（完全安定版）
             ------------------------------------ */
             async generatePostText(product) {
                 const useAI = document.getElementById("auto-use-ai").checked;
@@ -1439,63 +1439,102 @@ ${tags}`;
                 const affiliateUrl = `https://www.amazon.co.jp/dp/${asin}?tag=${tag}`;
                 const shortUrl = await shortenUrl(affiliateUrl);
 
-                // AIを使う場合
-                if (useAI) {
-                    const apiKey = localStorage.getItem("openrouterApiKey");
-                    const model = document.getElementById("openrouter-model").value || "openrouter/free";
-
-                    if (!apiKey) {
-                        this.log("❌ OpenRouter APIキーが設定されていません", "error");
-                        return null;
-                    }
-
-                    // 商品名・価格をプロンプトに含める（重要）
-                    const prompt = `
-                    あなたは日本のSNSマーケティング専門家です。
-                    以下の商品情報を基に、X（Twitter）向けの宣伝文を1つだけ生成してください。
-
-                    【商品名】
-                    ${product.title}
-
-                    【価格】
-                    ${product.price || "価格情報なし"}
-
-                    【短縮URL】
-                    ${shortUrl}
-
-                    【ルール】
-                    - 出力は「宣伝文のみ」。説明・前置き・分析は禁止。
-                    - 箇条書きには ✔ を使用
-                    - 絵文字は 2〜4 個
-                    - ハッシュタグは #Amazon を含めて 2〜4 個
-                    - 180 文字以内
-                    - URL は文末に置く
-                    - 「はい、〜します」などの前置きは禁止
-                    - 「以下が宣伝文です」などの説明も禁止
-                    - 宣伝文以外の文章を一切出力しない
-
-                    【出力形式】
-                    宣伝文のみをそのまま出力。
-                    `.trim();
-
-                    try {
-                        const aiText = await callOpenRouterAPI(apiKey, prompt, model);
-                        return aiText.length > 180 ? aiText.substring(0, 177) + "…" : aiText;
-                    } catch (e) {
-                        this.log("❌ AI生成失敗: " + e.message, "error");
-                        return null;
-                    }
+                /* ============================
+                ① AIを使わない場合（従来版）
+                ============================ */
+                if (!useAI) {
+                    const info = {
+                        title: product.title,
+                        price: product.price || "",
+                        rating: "",
+                        discount: ""
+                    };
+                    return createSimplePostText(info, shortUrl, "twitter");
                 }
 
-                // AIを使わない場合
-                const info = {
-                    title: product.title,
-                    price: product.price || "",
-                    rating: "",
-                    discount: ""
-                };
+                /* ============================
+                ② AIを使う場合（OpenRouter）
+                ============================ */
+                const apiKey = localStorage.getItem("openrouterApiKey");
+                const model = document.getElementById("openrouter-model").value || "meta-llama/llama-3.3-70b-instruct:free";
 
-                return createSimplePostText(info, shortUrl, "twitter");
+                if (!apiKey) {
+                    this.log("❌ OpenRouter APIキーが設定されていません", "error");
+                    return null;
+                }
+
+                /* ============================
+                ③ v2.9 安定版プロンプト
+                ============================ */
+                const prompt = `
+            あなたは日本のSNSマーケティング専門家です。
+            以下の商品情報を基に、X（Twitter）向けの宣伝文を1つだけ生成してください。
+
+            【商品名】
+            ${product.title}
+
+            【価格】
+            ${product.price || "価格情報なし"}
+
+            【短縮URL】
+            ${shortUrl}
+
+            【厳守ルール】
+            - 出力は「宣伝文のみ」。説明・前置き・分析は禁止。
+            - 箇条書きには ✔ を使用
+            - 絵文字は 2〜4 個
+            - ハッシュタグは #Amazon を含めて 2〜4 個
+            - ハッシュタグの前には必ず半角スペースを入れる（例: " #Amazon"）
+            - 180 文字以内
+            - URL は文末に置く（最後の行）
+            - 「はい、〜します」などの前置きは禁止
+            - 「以下が宣伝文です」などの説明も禁止
+            - 宣伝文以外の文章を一切出力しない
+
+            【出力形式】
+            宣伝文のみをそのまま出力。
+                `.trim();
+
+                try {
+                    let aiText = await callOpenRouterAPI(apiKey, prompt, model);
+
+                    /* ============================
+                    ④ AIの暴走を防ぐ後処理
+                    ============================ */
+                    let finalText = aiText
+                        .replace(/はい、.+?。/g, "")                 // 「はい、〜します」削除
+                        .replace(/以下.+?:/gi, "")                  // 「以下〜」削除
+                        .replace(/宣伝文.+?:/gi, "")                // 「宣伝文です」削除
+                        .replace(/動画.+?(。|！)/g, "")              // 動画系の暴走削除
+                        .replace(/レビュー.+?(。|！)/g, "")          // レビュー系の暴走削除
+                        .replace(/\n{2,}/g, "\n")                   // 改行整理
+                        .trim();
+
+                    /* ============================
+                    ⑤ ハッシュタグの前にスペースを強制
+                    ============================ */
+                    finalText = finalText.replace(/(#\w+)/g, " $1");
+
+                    /* ============================
+                    ⑥ URL が無い場合は強制追加
+                    ============================ */
+                    if (!finalText.includes(shortUrl)) {
+                        finalText += "\n" + shortUrl;
+                    }
+
+                    /* ============================
+                    ⑦ 180文字制限
+                    ============================ */
+                    if (finalText.length > 180) {
+                        finalText = finalText.substring(0, 177) + "…";
+                    }
+
+                    return finalText;
+
+                } catch (e) {
+                    this.log("❌ AI生成失敗: " + e.message, "error");
+                    return null;
+                }
             }
 
             /* ------------------------------------
