@@ -1,272 +1,1581 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Twitter Analytics Tool using Twikit
-自分のツイートを分析してJSON形式で保存します
-"""
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>X アフィリエイト投稿ツール（Workers版） v2.7</title>
 
-import asyncio
-import json
-import os
-from datetime import datetime, timedelta
-from collections import Counter
-import re
-from twikit import Client
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-# ===== 設定 =====
-TWITTER_USERNAME = "raida_bt"  # 例: "example_user"
-TWITTER_EMAIL = "raida.bt@gmail.com"         # 例: "email@example.com"
-TWITTER_PASSWORD = "raida5963"         # 例: "password123"
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
 
-MAX_TWEETS = 100  # 取得するツイート数（最大）
-COOKIES_FILE = "twitter_cookies.json"
-OUTPUT_FILE = "tweet_analytics.json"
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
 
-# ===== Twitterクライアント =====
-client = Client("ja-JP")
+        .header {
+            background: #1d9bf0;
+            color: white;
+            padding: 25px;
+            text-align: center;
+        }
 
-async def login():
-    """Twitterにログイン"""
-    print("🔐 Twitterにログイン中...")
-    
-    # クッキーが存在する場合は再利用
-    if os.path.exists(COOKIES_FILE):
-        try:
-            client.load_cookies(COOKIES_FILE)
-            await client.user_id()  # 認証確認
-            print("✅ 保存済みクッキーでログインしました")
-            return True
-        except Exception as e:
-            print(f"⚠️ クッキーが無効です。再ログインします...")
-    
-    # 新規ログイン
-    try:
-        await client.login(
-            auth_info_1=TWITTER_USERNAME,
-            auth_info_2=TWITTER_EMAIL,
-            password=TWITTER_PASSWORD
-        )
-        client.save_cookies(COOKIES_FILE)
-        print("✅ ログインに成功しました")
-        return True
-    except Exception as e:
-        print(f"❌ ログイン失敗: {e}")
-        return False
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
 
-async def get_my_tweets(max_tweets=100):
-    """自分のツイートを取得"""
-    print(f"\n📥 最新{max_tweets}件のツイートを取得中...")
-    
-    try:
-        # 自分のユーザーIDを取得
-        user = await client.user()
-        user_id = user.id
-        
-        print(f"ユーザー: @{user.screen_name}")
-        
-        # 自分のツイートを取得
-        tweets = await client.get_user_tweets(user_id, 'Tweets', count=max_tweets)
-        
-        tweet_list = []
-        count = 0
-        
-        for tweet in tweets:
-            count += 1
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .tabs {
+            display: flex;
+            background: #f7f9fa;
+            border-bottom: 2px solid #e1e8ed;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            font-size: 14px;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s;
+        }
+
+        .tab:hover {
+            background: rgba(29, 155, 240, 0.1);
+        }
+
+        .tab.active {
+            color: #1d9bf0;
+            background: white;
+            border-bottom: 3px solid #1d9bf0;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 25px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 14px;
+        }
+
+        input[type="url"],
+        input[type="text"],
+        input[type="search"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: border-color 0.3s;
+            font-family: inherit;
+        }
+
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #1d9bf0;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #1d9bf0;
+            color: white;
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #1a8cd8;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(29, 155, 240, 0.3);
+        }
+
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-outline {
+            background: white;
+            color: #1d9bf0;
+            border: 2px solid #1d9bf0;
+        }
+
+        .btn-outline:hover {
+            background: #1d9bf0;
+            color: white;
+        }
+
+        .btn-success {
+            background: #10a37f;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #ff9800;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .char-count {
+            text-align: right;
+            font-size: 13px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .char-count.warning {
+            color: #f91880;
+            font-weight: 600;
+        }
+
+        .error {
+            background: #fee;
+            border: 2px solid #fcc;
+            color: #c00;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            display: none;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .success {
+            background: #e8f5e9;
+            border: 2px solid #81c784;
+            color: #2e7d32;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            display: none;
+        }
+
+        .success.show {
+            display: block;
+        }
+
+        .info {
+            background: #e3f2fd;
+            border: 2px solid #90caf9;
+            color: #1565c0;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            display: none;
+        }
+
+        .info.show {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>
+                🐦 X アフィリエイト投稿ツール
+                <span style="background:#10a37f;padding:3px 8px;border-radius:4px;font-size:12px;">Workers版</span>
+                <span style="background:#ff6b6b;padding:3px 8px;border-radius:4px;font-size:12px;margin-left:5px;">v2.7</span>
+            </h1>
+            <p>高精度な価格取得 × AI宣伝文生成 × 自動投稿</p>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('manual')">🔗 URL指定</button>
+            <button class="tab" onclick="switchTab('trending')">💡 人気ワード</button>
+            <button class="tab" onclick="switchTab('detailed')">⚡ 価格取得強化</button>
+            <button class="tab" onclick="switchTab('ranking')">📊 ランキング</button>
+            <button class="tab" onclick="switchTab('auto')">🤖 自動投稿</button>
+            <button class="tab" onclick="switchTab('ai')">✨ AI宣伝文</button>
+        </div>
+
+        <!-- ========================= -->
+        <!-- URL指定タブ -->
+        <!-- ========================= -->
+
+        <div id="manual-tab" class="tab-content active">
+            <div class="form-group">
+                <label>📦 Amazon商品URL</label>
+                <input type="url" id="amazonUrl" placeholder="https://www.amazon.co.jp/dp/B0XXXXXXXXX">
+            </div>
+
+            <div class="form-group">
+                <label>🏷️ アソシエイトタグ</label>
+                <input type="text" id="tag" placeholder="yourname-22">
+            </div>
+
+            <div class="form-group">
+                <label>📝 投稿テンプレート</label>
+                <textarea id="customTemplate">{商品名}
+詳細・最新価格はこちら⇒⇒
+{リンク}
+
+{タグ}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label style="display:flex;align-items:center;gap:10px;">
+                    <input type="checkbox" id="useShortUrl" checked>
+                    短縮URLを使用
+                </label>
+            </div>
+
+            <button class="btn btn-primary" onclick="generateFromUrl()" id="generateBtn">
+                ✨ 投稿文を生成
+            </button>
+
+            <div class="loading-inline" id="loading-manual" style="display:none;">
+                <div class="spinner-small"></div>
+                <span>生成中です...</span>
+            </div>
+
+            <div class="error" id="error-manual"></div>
+            <div class="result" id="result-manual"></div>
+            <div id="charCount-manual" class="char-count"></div>
+
+            <div id="actions-manual" style="display:none;">
+                <div class="button-group">
+                    <button class="btn btn-success" onclick="postToX('manual')">🐦 Xで投稿する</button>
+                    <button class="btn btn-outline" onclick="copyText('manual')">📋 コピー</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================= -->
+        <!-- 人気ワードタブ -->
+        <!-- ========================= -->
+
+        <div id="trending-tab" class="tab-content">
+            <div class="form-group">
+                <label>🏷️ アソシエイトタグ</label>
+                <input type="text" id="tag-trending" placeholder="yourname-22">
+            </div>
+
+            <div class="form-group">
+                <label>💡 話題の商品ワード</label>
+                <select id="trendingKeyword" class="keyword-select">
+                    <option value="">-- 話題のワードを選択 --</option>
+                </select>
+                <button class="btn btn-outline" onclick="updateTrendingKeywords()" style="margin-top:10px;">🔄 更新</button>
+            </div>
+
+            <div class="form-group">
+                <label style="display:flex;align-items:center;gap:10px;">
+                    <input type="checkbox" id="useShortUrl-trending" checked>
+                    短縮URLを使用
+                </label>
+            </div>
+
+            <div class="error" id="error-trending"></div>
+            <div class="success" id="success-trending"></div>
+            <div class="info" id="info-trending"></div>
+
+            <div id="bulk-actions-trending" class="bulk-actions" style="display:none;">
+                <button class="btn btn-warning" onclick="startBulkPost('trending')">🚀 順番に投稿</button>
+                <button class="btn btn-danger" onclick="resetPosted('trending')">🔄 リセット</button>
+            </div>
+
+            <div class="loading" id="trending-loading" style="display:none;">
+                <div class="spinner"></div>
+                <p>商品を検索中...</p>
+            </div>
+
+            <div id="trending-results" class="product-list"></div>
+        </div>
+
+        <!-- ========================= -->
+        <!-- 価格取得強化タブ -->
+        <!-- ========================= -->
+
+        <div id="detailed-tab" class="tab-content">
+            <div class="form-group">
+                <label>🏷️ アソシエイトタグ</label>
+                <input type="text" id="tag-detailed" placeholder="yourname-22">
+            </div>
+
+            <div class="form-group">
+                <label>⚡ 商品検索キーワード</label>
+                <div class="search-controls">
+                    <input type="search" id="detailedQuery" placeholder="商品名やキーワードを入力">
+                    <button class="btn btn-primary" onclick="detailedSearch()">⚡ 検索</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label style="display:flex;align-items:center;gap:10px;">
+                    <input type="checkbox" id="useShortUrl-detailed" checked>
+                    短縮URLを使用
+                </label>
+            </div>
+
+            <div class="error" id="error-detailed"></div>
+            <div class="success" id="success-detailed"></div>
+            <div class="info" id="info-detailed"></div>
+
+            <div id="bulk-actions-detailed" class="bulk-actions" style="display:none;">
+                <button class="btn btn-warning" onclick="startBulkPost('detailed')">🚀 順番に投稿</button>
+                <button class="btn btn-danger" onclick="resetPosted('detailed')">🔄 リセット</button>
+            </div>
+
+            <div class="loading" id="detailed-loading" style="display:none;">
+                <div class="spinner"></div>
+                <p id="detailed-progress">商品を詳細取得中...</p>
+                <button class="btn btn-danger" onclick="cancelDetailedSearch()" style="margin-top:10px;">❌ キャンセル</button>
+            </div>
+
+            <div id="detailed-results" class="product-list"></div>
+        </div>
+
+        <!-- ========================= -->
+        <!-- ランキングタブ -->
+        <!-- ========================= -->
+
+        <div id="ranking-tab" class="tab-content">
+            <div class="form-group">
+                <label>🏷️ アソシエイトタグ</label>
+                <input type="text" id="tag-ranking" placeholder="yourname-22">
+            </div>
+
+            <div class="form-group">
+                <label>📊 カテゴリ選択</label>
+                <div class="ranking-controls">
+                    <select id="category" onchange="updateCategoryUrl()">
+                        <option value="bestsellers">総合ベストセラー</option>
+                        <option value="kitchen">ホーム&キッチン</option>
+                        <option value="electronics">家電&カメラ</option>
+                        <option value="computers">パソコン・周辺機器</option>
+                        <option value="books">本</option>
+                        <option value="dvd">DVD・ミュージック</option>
+                        <option value="toys">おもちゃ</option>
+                        <option value="hobby">ホビー</option>
+                        <option value="sports">スポーツ&アウトドア</option>
+                        <option value="diy">DIY・工具</option>
+                        <option value="food">食品・飲料</option>
+                        <option value="beauty">ビューティー</option>
+                        <option value="fashion">ファッション</option>
+                        <option value="jewelry">ジュエリー</option>
+                        <option value="shoes">シューズ&バッグ</option>
+                        <option value="pet">ペット用品</option>
+                        <option value="baby">ベビー&マタニティ</option>
+                        <option value="custom">カスタムURL</option>
+                    </select>
+
+                    <button class="btn btn-primary" onclick="fetchRanking()">📊 取得</button>
+                </div>
+            </div>
+
+            <div class="form-group" id="custom-url-group" style="display:none;">
+                <label>カスタムランキングURL</label>
+                <input type="url" id="customRankingUrl" placeholder="https://www.amazon.co.jp/gp/bestsellers/...">
+            </div>
+
+            <div class="form-group">
+                <label style="display:flex;align-items:center;gap:10px;">
+                    <input type="checkbox" id="useShortUrl-ranking" checked>
+                    短縮URLを使用
+                </label>
+            </div>
+
+            <div class="form-group">
+                <label style="display:flex;align-items:center;gap:10px;">
+                    <input type="checkbox" id="useDeepFetch-ranking">
+                    ⚡ 価格取得強化モード
+                </label>
+            </div>
+
+            <div class="error" id="error-ranking"></div>
+            <div class="success" id="success-ranking"></div>
+            <div class="info" id="info-ranking"></div>
+
+            <div id="bulk-actions-ranking" class="bulk-actions" style="display:none;">
+                <button class="btn btn-warning" onclick="startBulkPost('ranking')">🚀 順番に投稿</button>
+                <button class="btn btn-danger" onclick="resetPosted('ranking')">🔄 リセット</button>
+            </div>
+
+            <div class="loading" id="ranking-loading" style="display:none;">
+                <div class="spinner"></div>
+                <p>ランキング取得中...</p>
+            </div>
+
+            <div id="product-list" class="product-list"></div>
+        </div>
+
+        <!-- ========================= -->
+        <!-- 自動投稿タブ -->
+        <!-- ========================= -->
+
+        <div id="auto-tab" class="tab-content">
+            <div class="form-group">
+                <label>🏷️ アソシエイトタグ</label>
+                <input type="text" id="tag-auto" placeholder="yourname-22">
+            </div>
+
+            <div class="form-group">
+                <label>🔑 キーワードリスト（1行1キーワード）</label>
+                <textarea id="keyword-list" placeholder="イヤホン
+プロテイン
+タオル"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>⏱️ 投稿間隔（分）</label>
+                <input type="number" id="post-interval" value="30" min="1">
+            </div>
+
+            <div class="form-group">
+                <label>📌 1キーワードあたりの投稿数</label>
+                <input type="number" id="posts-per-keyword" value="3" min="1">
+            </div>
+
+            <div class="form-group">
+                <label style="display:flex;align-items:center;gap:10px;">
+                    <input type="checkbox" id="auto-use-trending">
+                    人気ワードを自動取得して使用
+                </label>
+            </div>
+
+            <div class="form-group">
+                <label style="display:flex;align-items:center;gap:10px;">
+                    <input type="checkbox" id="auto-skip-no-price">
+                    価格が取得できない商品をスキップ
+                </label>
+            </div>
             
-            # ハッシュタグを抽出
-            hashtags = re.findall(r'#(\w+)', tweet.text)
-            
-            # 時間帯を計算
-            created_at = datetime.strptime(tweet.created_at, '%a %b %d %H:%M:%S %z %Y')
-            hour = created_at.hour
-            
-            # ツイートデータをまとめる
-            tweet_data = {
-                'id': tweet.id,
-                'text': tweet.text,
-                'created_at': tweet.created_at,
-                'created_at_datetime': created_at.isoformat(),
-                'hour': hour,
-                'view_count': tweet.view_count or 0,
-                'retweet_count': tweet.retweet_count or 0,
-                'favorite_count': tweet.favorite_count or 0,
-                'reply_count': tweet.reply_count or 0,
-                'bookmark_count': tweet.bookmark_count or 0,
-                'hashtags': hashtags,
-                'has_media': bool(tweet.media),
-                'is_retweet': hasattr(tweet, 'retweeted_tweet') and tweet.retweeted_tweet is not None
+            <div class="form-group">
+                <label style="display:flex;align-items:center;gap:10px;">
+                    <input type="checkbox" id="avoid-duplicate-keywords">
+                    使用済みキーワードを避ける
+                </label>
+            </div>
+            <div class="form-group">
+                <label style="display:flex;align-items:center;gap:10px;">
+                    <input type="checkbox" id="auto-use-ai" checked>
+                    🤖 AIで宣伝文を生成する（OpenRouter）
+                </label>
+            </div>
+            <div class="form-group">
+                <label style="display:flex;align-items:center;gap:10px;">
+                    <input type="checkbox" id="auto-mode-enabled">
+                    🤖 完全自動モード（Tampermonkey）
+                </label>
+            </div>
+
+            <div class="form-group" id="confirm-time-group" style="display:none;">
+                <label>⏳ 自動投稿の確認時間（秒）</label>
+                <input type="number" id="confirm-time" value="3" min="1">
+            </div>
+
+            <button id="auto-start-btn" class="btn btn-primary" onclick="autoPoster.start()">🚀 自動投稿開始</button>
+            <button id="auto-stop-btn" class="btn btn-danger" onclick="autoPoster.stop()" style="display:none;">⛔ 停止</button>
+
+            <div id="auto-status" style="display:none; margin-top:20px;">
+                <p>現在のキーワード: <span id="current-keyword">-</span></p>
+                <p>次の投稿予定時刻: <span id="next-post-info">-</span></p>
+                <p>残り時間: <span id="auto-timer">--:--</span></p>
+
+                <div style="margin-top:10px;">
+                    <strong>投稿進捗</strong>
+                    <div style="background:#eee; height:10px; border-radius:5px; margin-top:5px;">
+                        <div id="progress-bar" style="height:10px; width:0%; background:#1d9bf0; border-radius:5px;"></div>
+                    </div>
+                </div>
+
+                <div style="margin-top:10px;">
+                    <p>総投稿数: <span id="stat-total">0</span></p>
+                    <p>成功: <span id="stat-success">0</span> / 失敗: <span id="stat-failed">0</span></p>
+                </div>
+            </div>
+
+            <div id="auto-log" style="display:none; margin-top:20px; background:#f7f9fa; border:1px solid #ddd; padding:10px; height:200px; overflow-y:auto;">
+                <div id="log-content"></div>
+            </div>
+        </div>
+
+        <!-- ========================= -->
+        <!-- AI宣伝文タブ -->
+        <!-- ========================= -->
+
+        <div id="ai-tab" class="tab-content">
+            <div class="info-box" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <strong>✨ AI自動生成（v2.7 最適化版）</strong><br>
+                商品URLを入力すると、AIが180文字以内の宣伝文を生成します。
+            </div>
+
+            <div class="form-group">
+                <label>🤖 使用するAIモデル</label>
+                <div style="display:flex; gap:10px; margin-bottom:10px;">
+                    <button class="btn btn-outline" onclick="selectAIModel('gemini')" id="ai-btn-gemini" style="flex:1;">✨ Gemini</button>
+                    <button class="btn btn-outline" onclick="selectAIModel('grok')" id="ai-btn-grok" style="flex:1;">⚡ Grok</button>
+                    <button class="btn btn-outline" onclick="selectAIModel('openrouter')" id="ai-btn-openrouter" style="flex:1;">🌐 OpenRouter</button>
+                </div>
+                <small id="ai-model-description" style="color:#666; font-size:12px;">
+                    AIモデルを選択してください
+                </small>
+            </div>
+
+            <div class="form-group" id="openrouter-model-selector" style="display:none;">
+                <label>🎯 OpenRouterモデル</label>
+                <select id="openrouter-model" style="width:100%; padding:10px; border:2px solid #e1e8ed; border-radius:8px;">
+                    <option value="openrouter/free">✨ 自動選択（推奨・無料）</option>
+                    <option value="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3 70B（無料）</option>
+                    <option value="deepseek/deepseek-chat-v3-0324:free">DeepSeek Chat v3（無料）</option>
+                    <option value="deepseek/deepseek-r1-0528:free">DeepSeek R1（無料）</option>
+                    <option value="qwen/qwen3-4b:free">Qwen 3 4B（無料）</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label id="ai-key-label">🔑 API Key</label>
+                <input type="password" id="ai-api-key" placeholder="APIキーを入力">
+                <small id="ai-key-link" style="color:#666; font-size:12px;"></small>
+            </div>
+
+            <div class="form-group">
+                <label>📦 Amazon商品URL</label>
+                <input type="url" id="ai-product-url" placeholder="https://www.amazon.co.jp/dp/B0XXXXXXXXX">
+            </div>
+
+            <div class="form-group">
+                <label>🏷️ アソシエイトタグ</label>
+                <input type="text" id="tag-ai" placeholder="yourname-22">
+            </div>
+
+            <button class="btn btn-primary" onclick="generateAIPost()" id="generate-ai-btn">
+                ✨ AI宣伝文を生成
+            </button>
+
+            <div class="loading-inline" id="loading-ai" style="display:none;">
+                <div class="spinner-small"></div>
+                <span id="ai-loading-text">AIが宣伝文を生成中...</span>
+            </div>
+
+            <div class="error" id="error-ai"></div>
+
+            <div id="ai-result-container" style="display:none; margin-top:20px;">
+                <div class="form-group">
+                    <label>📝 生成された宣伝文（編集可能）</label>
+                    <textarea id="ai-generated-text" style="min-height:200px;" oninput="updateCharCount(this.value, 'ai')"></textarea>
+                </div>
+
+                <div id="charCount-ai" class="char-count"></div>
+
+                <div class="button-group">
+                    <button class="btn btn-success" onclick="postToX('ai')">🐦 Xで投稿する</button>
+                    <button class="btn btn-outline" onclick="copyText('ai')">📋 コピー</button>
+                    <button class="btn btn-warning" onclick="regenerateAIPost()">🔄 再生成</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================= -->
+        <!-- ここから JavaScript 開始 -->
+        <!-- ========================= -->
+
+        <script>
+        let currentPostText = {
+            manual: "",
+            trending: "",
+            detailed: "",
+            ranking: "",
+            ai: ""
+        };
+
+        let currentProducts = {
+            trending: [],
+            detailed: [],
+            ranking: []
+        };
+
+        let postedProducts = {
+            trending: new Set(),
+            detailed: new Set(),
+            ranking: new Set()
+        };
+
+        function switchTab(tab) {
+            document.querySelectorAll(".tab").forEach(btn => btn.classList.remove("active"));
+            event.target.classList.add("active");
+
+            document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+            document.getElementById(tab + "-tab").classList.add("active");
+        }
+
+        /* ============================
+           AIモデル選択
+        ============================ */
+
+        let currentAIModel = "gemini";
+        let currentAIPrompt = "";
+
+        function selectAIModel(model) {
+            currentAIModel = model;
+
+            const geminiBtn = document.getElementById("ai-btn-gemini");
+            const grokBtn = document.getElementById("ai-btn-grok");
+            const openrouterBtn = document.getElementById("ai-btn-openrouter");
+            const apiKeyLabel = document.getElementById("ai-key-label");
+            const apiKeyInput = document.getElementById("ai-api-key");
+            const apiKeyLink = document.getElementById("ai-key-link");
+            const modelDesc = document.getElementById("ai-model-description");
+            const modelSelector = document.getElementById("openrouter-model-selector");
+
+            [geminiBtn, grokBtn, openrouterBtn].forEach(btn => {
+                btn.classList.remove("btn-primary");
+                btn.classList.add("btn-outline");
+            });
+
+            if (model === "gemini") {
+                geminiBtn.classList.add("btn-primary");
+                geminiBtn.classList.remove("btn-outline");
+                modelSelector.style.display = "none";
+
+                apiKeyLabel.textContent = "🔑 Gemini API Key";
+                apiKeyInput.placeholder = "AIzaSy...";
+                apiKeyLink.innerHTML = `💡 <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studioで無料取得</a>`;
+                modelDesc.textContent = "Googleの最新AI。自然で読みやすい文章が得意です。";
+
+                const savedKey = localStorage.getItem("geminiApiKey");
+                if (savedKey) apiKeyInput.value = savedKey;
+
+            } else if (model === "grok") {
+                grokBtn.classList.add("btn-primary");
+                grokBtn.classList.remove("btn-outline");
+                modelSelector.style.display = "none";
+
+                apiKeyLabel.textContent = "🔑 Grok API Key";
+                apiKeyInput.placeholder = "xai-...";
+                apiKeyLink.innerHTML = `💡 <a href="https://console.x.ai/" target="_blank">xAI Consoleで無料取得</a>`;
+                modelDesc.textContent = "xAIの最新モデル。キャッチーで勢いのある文章が得意です。";
+
+                const savedKey = localStorage.getItem("grokApiKey");
+                if (savedKey) apiKeyInput.value = savedKey;
+
+            } else if (model === "openrouter") {
+                openrouterBtn.classList.add("btn-primary");
+                openrouterBtn.classList.remove("btn-outline");
+                modelSelector.style.display = "block";
+
+                apiKeyLabel.textContent = "🔑 OpenRouter API Key";
+                apiKeyInput.placeholder = "sk-or-v1-...";
+                apiKeyLink.innerHTML = `💡 <a href="https://openrouter.ai/keys" target="_blank">OpenRouterで無料取得</a>`;
+                modelDesc.textContent = "複数の無料モデルを自動選択。DeepSeek・Qwenなどが利用可能。";
+
+                const savedKey = localStorage.getItem("openrouterApiKey");
+                if (savedKey) apiKeyInput.value = savedKey;
             }
-            
-            tweet_list.append(tweet_data)
-            
-            print(f"[{count}/{max_tweets}] {created_at.strftime('%Y-%m-%d %H:%M')} | インプ: {tweet.view_count:,} | いいね: {tweet.favorite_count:,}")
-            
-            if count >= max_tweets:
-                break
-        
-        print(f"\n✅ {len(tweet_list)}件のツイートを取得しました")
-        return tweet_list
-        
-    except Exception as e:
-        print(f"❌ ツイート取得エラー: {e}")
-        return []
+        }
 
-def analyze_tweets(tweets):
-    """ツイートを分析"""
-    print("\n📊 ツイートを分析中...")
-    
-    if not tweets:
-        print("❌ 分析するツイートがありません")
-        return None
-    
-    # 基本統計
-    total_tweets = len(tweets)
-    total_impressions = sum(t['view_count'] for t in tweets)
-    total_likes = sum(t['favorite_count'] for t in tweets)
-    total_retweets = sum(t['retweet_count'] for t in tweets)
-    total_replies = sum(t['reply_count'] for t in tweets)
-    total_bookmarks = sum(t['bookmark_count'] for t in tweets)
-    
-    avg_impressions = total_impressions / total_tweets if total_tweets > 0 else 0
-    avg_likes = total_likes / total_tweets if total_tweets > 0 else 0
-    avg_retweets = total_retweets / total_tweets if total_tweets > 0 else 0
-    
-    # エンゲージメント率
-    engagement_rate = (total_likes + total_retweets + total_replies) / total_impressions * 100 if total_impressions > 0 else 0
-    
-    # 時間帯別分析
-    hourly_stats = {}
-    for hour in range(24):
-        hour_tweets = [t for t in tweets if t['hour'] == hour]
-        if hour_tweets:
-            hourly_stats[hour] = {
-                'count': len(hour_tweets),
-                'avg_impressions': sum(t['view_count'] for t in hour_tweets) / len(hour_tweets),
-                'avg_likes': sum(t['favorite_count'] for t in hour_tweets) / len(hour_tweets),
-                'avg_retweets': sum(t['retweet_count'] for t in hour_tweets) / len(hour_tweets)
-            }
-    
-    # ハッシュタグ分析
-    all_hashtags = []
-    for tweet in tweets:
-        all_hashtags.extend(tweet['hashtags'])
-    
-    hashtag_counter = Counter(all_hashtags)
-    top_hashtags = hashtag_counter.most_common(20)
-    
-    # ハッシュタグ別パフォーマンス
-    hashtag_performance = {}
-    for tag, count in top_hashtags:
-        tagged_tweets = [t for t in tweets if tag in t['hashtags']]
-        if tagged_tweets:
-            hashtag_performance[tag] = {
-                'count': count,
-                'avg_impressions': sum(t['view_count'] for t in tagged_tweets) / len(tagged_tweets),
-                'avg_likes': sum(t['favorite_count'] for t in tagged_tweets) / len(tagged_tweets),
-                'avg_engagement_rate': (
-                    sum(t['favorite_count'] + t['retweet_count'] + t['reply_count'] for t in tagged_tweets) /
-                    sum(t['view_count'] for t in tagged_tweets) * 100
-                ) if sum(t['view_count'] for t in tagged_tweets) > 0 else 0
-            }
-    
-    # トップパフォーマンスツイート
-    top_tweets_by_impressions = sorted(tweets, key=lambda x: x['view_count'], reverse=True)[:10]
-    top_tweets_by_engagement = sorted(
-        tweets, 
-        key=lambda x: (x['favorite_count'] + x['retweet_count'] + x['reply_count']) / max(x['view_count'], 1), 
-        reverse=True
-    )[:10]
-    
-    # 分析結果をまとめる
-    analysis = {
-        'summary': {
-            'total_tweets': total_tweets,
-            'total_impressions': total_impressions,
-            'total_likes': total_likes,
-            'total_retweets': total_retweets,
-            'total_replies': total_replies,
-            'total_bookmarks': total_bookmarks,
-            'avg_impressions': round(avg_impressions, 2),
-            'avg_likes': round(avg_likes, 2),
-            'avg_retweets': round(avg_retweets, 2),
-            'engagement_rate': round(engagement_rate, 2)
-        },
-        'hourly_stats': hourly_stats,
-        'hashtag_performance': hashtag_performance,
-        'top_tweets_by_impressions': [
-            {
-                'text': t['text'][:100] + '...' if len(t['text']) > 100 else t['text'],
-                'impressions': t['view_count'],
-                'likes': t['favorite_count'],
-                'retweets': t['retweet_count'],
-                'created_at': t['created_at_datetime']
-            }
-            for t in top_tweets_by_impressions
-        ],
-        'top_tweets_by_engagement': [
-            {
-                'text': t['text'][:100] + '...' if len(t['text']) > 100 else t['text'],
-                'impressions': t['view_count'],
-                'likes': t['favorite_count'],
-                'retweets': t['retweet_count'],
-                'engagement_rate': round((t['favorite_count'] + t['retweet_count'] + t['reply_count']) / max(t['view_count'], 1) * 100, 2),
-                'created_at': t['created_at_datetime']
-            }
-            for t in top_tweets_by_engagement
-        ],
-        'all_tweets': tweets
-    }
-    
-    # 結果を表示
-    print("\n" + "="*60)
-    print("📊 分析結果")
-    print("="*60)
-    print(f"総ツイート数: {total_tweets:,}")
-    print(f"総インプレッション: {total_impressions:,}")
-    print(f"総いいね: {total_likes:,}")
-    print(f"総リツイート: {total_retweets:,}")
-    print(f"総リプライ: {total_replies:,}")
-    print(f"総ブックマーク: {total_bookmarks:,}")
-    print(f"平均インプレッション: {avg_impressions:,.2f}")
-    print(f"平均いいね: {avg_likes:,.2f}")
-    print(f"エンゲージメント率: {engagement_rate:.2f}%")
-    
-    print(f"\n🏆 トップ5ハッシュタグ:")
-    for tag, count in top_hashtags[:5]:
-        perf = hashtag_performance.get(tag, {})
-        print(f"  #{tag}: {count}回 | 平均インプ: {perf.get('avg_impressions', 0):,.0f}")
-    
-    return analysis
+        /* ============================
+           v2.7 新プロンプト生成
+        ============================ */
 
-async def main():
-    """メイン処理"""
-    print("🚀 Twitter分析ツール")
-    print("="*60)
-    
-    # ログイン
-    if not await login():
-        return
-    
-    # ツイート取得
-    tweets = await get_my_tweets(MAX_TWEETS)
-    
-    if not tweets:
-        return
-    
-    # 分析
-    analysis = analyze_tweets(tweets)
-    
-    if not analysis:
-        return
-    
-    # 結果を保存
-    print(f"\n💾 結果を {OUTPUT_FILE} に保存中...")
-    with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
-        json.dump(analysis, f, ensure_ascii=False, indent=2)
-    
-    print(f"✅ 保存完了！")
-    print(f"\n📊 ダッシュボードで確認するには:")
-    print(f"   dashboard.html をブラウザで開いてください")
+        function createAIPrompt_v27(productUrl, shortUrl) {
+            return `
+あなたは日本のSNSマーケティング専門家です。
+以下のAmazon商品URLから「商品名」「価格」「特徴」を抽出し、
+X（Twitter）向けの宣伝文を作成してください。
 
-if __name__ == "__main__":
-    asyncio.run(main())
+【重要ルール】
+1. 180文字以内（厳守）
+2. 箇条書きに「✔」を使用
+3. 絵文字は2〜4個
+4. ハッシュタグは #Amazon を含めて2〜4個
+5. 読みやすく、クリックしたくなる文章
+6. URL（短縮URL）は必ず文末に置く
+7. 価格はページから抽出できた場合のみ含める
+8. 商品名は自然に短くしてもよい
+
+【商品URL】
+${productUrl}
+
+【短縮URL】
+${shortUrl}
+
+出力は宣伝文のみ。説明文は不要。
+            `.trim();
+        }
+
+        /* ============================
+           AI宣伝文生成
+        ============================ */
+
+        async function generateAIPost() {
+            const apiKey = document.getElementById("ai-api-key").value.trim();
+            const productUrl = document.getElementById("ai-product-url").value.trim();
+            const tag = document.getElementById("tag-ai").value.trim();
+
+            if (!apiKey) return showError("ai", "APIキーを入力してください");
+            if (!productUrl) return showError("ai", "Amazon商品URLを入力してください");
+            if (!productUrl.includes("amazon.co.jp")) return showError("ai", "Amazon.co.jpのURLを入力してください");
+            if (!tag) return showError("ai", "アソシエイトタグを入力してください");
+
+            if (currentAIModel === "gemini") localStorage.setItem("geminiApiKey", apiKey);
+            if (currentAIModel === "grok") localStorage.setItem("grokApiKey", apiKey);
+            if (currentAIModel === "openrouter") localStorage.setItem("openrouterApiKey", apiKey);
+            localStorage.setItem("amazonTag", tag);
+
+            hideError("ai");
+            document.getElementById("loading-ai").style.display = "flex";
+
+            try {
+                const asin = extractASIN(productUrl);
+                const affiliateUrl = `https://www.amazon.co.jp/dp/${asin}?tag=${tag}`;
+                const shortUrl = await shortenUrl(affiliateUrl);
+
+                currentAIPrompt = createAIPrompt_v27(productUrl, shortUrl);
+
+                let generatedText = "";
+
+                if (currentAIModel === "gemini") {
+                    generatedText = await callGeminiAPI(apiKey, currentAIPrompt);
+
+                } else if (currentAIModel === "grok") {
+                    generatedText = await callGrokAPI(apiKey, currentAIPrompt);
+
+                } else if (currentAIModel === "openrouter") {
+                    const model = document.getElementById("openrouter-model").value;
+                    generatedText = await callOpenRouterAPI(apiKey, currentAIPrompt, model);
+                }
+
+                if (generatedText.length > 180) {
+                    generatedText = generatedText.substring(0, 177) + "…";
+                }
+
+                document.getElementById("ai-result-container").style.display = "block";
+                document.getElementById("ai-generated-text").value = generatedText;
+                currentPostText.ai = generatedText;
+                updateCharCount(generatedText, "ai");
+
+            } catch (error) {
+                showError("ai", "AI生成に失敗しました: " + error.message);
+
+            } finally {
+                document.getElementById("loading-ai").style.display = "none";
+            }
+        }
+
+        /* ============================
+           再生成
+        ============================ */
+
+        async function regenerateAIPost() {
+            const apiKey = document.getElementById("ai-api-key").value.trim();
+            if (!apiKey || !currentAIPrompt) {
+                return showError("ai", "最初に商品URLを入力して生成してください");
+            }
+
+            document.getElementById("loading-ai").style.display = "flex";
+
+            try {
+                let generatedText = "";
+
+                if (currentAIModel === "gemini") {
+                    generatedText = await callGeminiAPI(apiKey, currentAIPrompt);
+
+                } else if (currentAIModel === "grok") {
+                    generatedText = await callGrokAPI(apiKey, currentAIPrompt);
+
+                } else if (currentAIModel === "openrouter") {
+                    const model = document.getElementById("openrouter-model").value;
+                    generatedText = await callOpenRouterAPI(apiKey, currentAIPrompt, model);
+                }
+
+                if (generatedText.length > 180) {
+                    generatedText = generatedText.substring(0, 177) + "…";
+                }
+
+                document.getElementById("ai-generated-text").value = generatedText;
+                currentPostText.ai = generatedText;
+                updateCharCount(generatedText, "ai");
+
+            } catch (error) {
+                showError("ai", "再生成に失敗しました: " + error.message);
+
+            } finally {
+                document.getElementById("loading-ai").style.display = "none";
+            }
+        }
+
+        /* ============================
+		   Gemini API（v2.7 修正版）
+		============================ */
+
+		async function callGeminiAPI(apiKey, prompt) {
+		    const url = "https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent";
+
+		    const body = {
+		        contents: [
+		            {
+		                role: "user",
+		                parts: [{ text: prompt }]
+		            }
+		        ],
+		        generationConfig: {
+		            temperature: 0.9,
+		            maxOutputTokens: 1024
+		        }
+		    };
+
+		    const res = await fetch(`${url}?key=${apiKey}`, {
+		        method: "POST",
+		        headers: { "Content-Type": "application/json" },
+		        body: JSON.stringify(body)
+		    });
+
+		    if (!res.ok) {
+		        const err = await res.text();
+		        throw new Error("Gemini API error: " + res.status + " / " + err);
+		    }
+
+		    const data = await res.json();
+
+		    // 安全にテキストを抽出
+		    if (
+		        !data.candidates ||
+		        !data.candidates[0] ||
+		        !data.candidates[0].content ||
+		        !data.candidates[0].content.parts
+		    ) {
+		        throw new Error("Gemini API response invalid");
+		    }
+
+		    return data.candidates[0].content.parts
+		        .map(part => part.text || "")
+		        .join("")
+		        .trim();
+		}
+
+        /* ============================
+           Grok API
+        ============================ */
+
+        async function callGrokAPI(apiKey, prompt) {
+            const res = await fetch("https://api.x.ai/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + apiKey
+                },
+                body: JSON.stringify({
+                    messages: [{ role: "user", content: prompt }],
+                    model: "grok-4-latest",
+                    temperature: 0.9
+                })
+            });
+
+            if (!res.ok) throw new Error("Grok API error: " + res.status);
+
+            const json = await res.json();
+            return json.choices[0].message.content.trim();
+        }
+
+        /* ============================
+           OpenRouter API
+        ============================ */
+
+        async function callOpenRouterAPI(apiKey, prompt, model) {
+            const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + apiKey,
+                    "HTTP-Referer": window.location.href,
+                    "X-Title": "Amazon Affiliate Tool"
+                },
+                body: JSON.stringify({
+                    messages: [{ role: "user", content: prompt }],
+                    model: model,
+                    temperature: 0.9
+                })
+            });
+
+            const json = await res.json();
+
+            if (json.error) {
+                throw new Error(json.error.message || "OpenRouter error");
+            }
+
+            if (!json.choices || !json.choices[0].message) {
+                throw new Error("OpenRouter response invalid");
+            }
+
+            return json.choices[0].message.content.trim();
+        }
+
+        /* ============================
+           URL短縮
+        ============================ */
+
+        async function shortenUrl(longUrl) {
+            try {
+                const res = await fetch(
+                    "https://tinyurl.com/api-create.php?url=" + encodeURIComponent(longUrl)
+                );
+                if (res.ok) return await res.text();
+            } catch {}
+            return longUrl;
+        }
+
+        /* ============================
+           ASIN抽出
+        ============================ */
+
+        function extractASIN(url) {
+            const match = url.match(/\/dp\/([A-Z0-9]{10})|\/gp\/product\/([A-Z0-9]{10})/);
+            return match ? (match[1] || match[2]) : null;
+        }
+
+        /* ============================
+           商品情報取得（CORSプロキシ）
+        ============================ */
+
+        async function fetchProductInfo(url) {
+            const asin = extractASIN(url);
+            if (!asin) throw new Error("ASINを抽出できませんでした");
+
+            const productUrl = `https://www.amazon.co.jp/dp/${asin}`;
+            const html = await fetchWithProxy(productUrl);
+
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, "text/html");
+
+            let title = "";
+            const titleElem = doc.querySelector("#productTitle");
+            if (titleElem) title = titleElem.textContent.trim();
+
+            let price = "";
+            const priceElem = doc.querySelector(".a-price .a-offscreen");
+            if (priceElem) {
+                const m = priceElem.textContent.match(/[\d,]+/);
+                if (m) price = parseInt(m[0].replace(/,/g, "")) + "円";
+            }
+
+            let rating = "";
+            const ratingElem = doc.querySelector(".a-icon-alt");
+            if (ratingElem) {
+                const m = ratingElem.textContent.match(/([\d.]+)/);
+                if (m) rating = "★" + m[1];
+            }
+
+            let discount = "";
+            const discountElem = doc.querySelector(".savingsPercentage");
+            if (discountElem) {
+                const m = discountElem.textContent.match(/(\d+)%/);
+                if (m) discount = m[1] + "%OFF";
+            }
+
+            return {
+                title: title || `Amazon商品（ASIN: ${asin}）`,
+                price,
+                rating,
+                discount,
+                asin
+            };
+        }
+
+        /* ============================
+           CORSプロキシでHTML取得
+        ============================ */
+
+        const corsProxies = [
+            "https://api.codetabs.com/v1/proxy?quest=",
+            "https://api.allorigins.win/raw?url="
+        ];
+
+        async function fetchWithProxy(url) {
+            for (const proxy of corsProxies) {
+                try {
+                    const res = await fetch(proxy + encodeURIComponent(url));
+                    if (res.ok) return await res.text();
+                } catch {}
+            }
+            throw new Error("CORSプロキシがすべて失敗しました");
+        }
+
+        /* ============================
+           投稿文生成（URL指定タブ）
+        ============================ */
+
+        async function generateFromUrl() {
+            const url = document.getElementById("amazonUrl").value.trim();
+            const tag = document.getElementById("tag").value.trim();
+            const template = document.getElementById("customTemplate").value.trim();
+            const useShort = document.getElementById("useShortUrl").checked;
+
+            if (!url) return showError("manual", "Amazon商品URLを入力してください");
+            if (!tag) return showError("manual", "アソシエイトタグを入力してください");
+
+            hideError("manual");
+            document.getElementById("loading-manual").style.display = "flex";
+
+            try {
+                const info = await fetchProductInfo(url);
+                let link = `https://www.amazon.co.jp/dp/${info.asin}?tag=${tag}`;
+                if (useShort) link = await shortenUrl(link);
+
+                const post = createCustomPostText(info, link, template);
+                currentPostText.manual = post;
+
+                document.getElementById("result-manual").textContent = post;
+                document.getElementById("result-manual").classList.add("show");
+                document.getElementById("actions-manual").style.display = "block";
+                updateCharCount(post, "manual");
+
+            } catch (e) {
+                showError("manual", e.message);
+            } finally {
+                document.getElementById("loading-manual").style.display = "none";
+            }
+        }
+
+        /* ============================
+           シンプル投稿文生成（共通）
+        ============================ */
+
+        function createSimplePostText(info, link, sns = "twitter") {
+            const limit = sns === "twitter" ? 180 : 500;
+
+            function build(title, tags) {
+                return `${title}
+詳細・最新価格はこちら⇒⇒
+${link}
+
+${tags}`;
+            }
+
+            let title = info.title;
+            let tags = generateHashtags(info);
+
+            let post = build(title, tags);
+            if (post.length <= limit) return post;
+
+            tags = "#Amazon";
+            post = build(title, tags);
+            if (post.length <= limit) return post;
+
+            title = info.title.substring(0, 30) + "…";
+            post = build(title, tags);
+            if (post.length <= limit) return post;
+
+            return build(info.title.substring(0, 10) + "…", "");
+        }
+
+        /* ============================
+           ハッシュタグ生成
+        ============================ */
+
+        function generateHashtags(info) {
+            const title = info.title.toLowerCase();
+
+            if (title.includes("イヤホン")) return "#Amazon #ガジェット #買ってよかった";
+            if (title.includes("プロテイン")) return "#Amazon #プロテイン #筋トレ";
+            if (title.includes("チョコ")) return "#Amazon #チョコレート #お菓子";
+
+            return "#Amazon #買ってよかった";
+        }
+
+        /* ============================
+           コピー
+        ============================ */
+
+        function copyText(tab) {
+            const text = currentPostText[tab];
+            if (!text) return showError(tab, "投稿文がありません");
+
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = event.target;
+                const original = btn.textContent;
+                btn.textContent = "✅ コピーしました！";
+                setTimeout(() => (btn.textContent = original), 2000);
+            });
+        }
+
+        /* ============================
+           投稿
+        ============================ */
+
+        function postToX(tab) {
+            const text = currentPostText[tab];
+            if (!text) return showError(tab, "投稿文がありません");
+
+            const url = "https://twitter.com/intent/tweet?text=" + encodeURIComponent(text);
+            window.open(url, "_blank", "width=550,height=420");
+        }
+
+        /* ============================
+           エラー表示
+        ============================ */
+
+        function showError(tab, msg) {
+            const div = document.getElementById("error-" + tab);
+            div.textContent = "⚠️ " + msg;
+            div.classList.add("show");
+            setTimeout(() => div.classList.remove("show"), 6000);
+        }
+
+        function hideError(tab) {
+            document.getElementById("error-" + tab).classList.remove("show");
+        }
+
+        /* ============================
+           文字数カウント
+        ============================ */
+
+        function updateCharCount(text, tab) {
+            const limit = tab === "ai" ? 180 : 280;
+            const div = document.getElementById("charCount-" + tab);
+            div.textContent = `文字数: ${text.length} / ${limit}`;
+            if (text.length > limit) div.classList.add("warning");
+            else div.classList.remove("warning");
+        }
+
+            /* ============================================================
+            Amazonリアルタイムランキングから人気ワードを抽出（v2.8）
+            ============================================================ */
+
+            async function getTrendingKeywordsFromAmazon(limit = 10) {
+                const rankingUrl = "https://www.amazon.co.jp/gp/bestsellers";
+
+                try {
+                    const html = await fetchWithProxy(rankingUrl);
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, "text/html");
+
+                    const items = doc.querySelectorAll(".zg-grid-general-faceout, .p13n-sc-uncoverable-faceout, li[data-asin]");
+                    const keywords = [];
+
+                    for (let i = 0; i < Math.min(items.length, 30); i++) {
+                        const item = items[i];
+
+                        const titleElem = item.querySelector("img")?.getAttribute("alt")
+                            || item.querySelector("div > a > span")
+                            || item.querySelector("h2, h3");
+
+                        if (!titleElem) continue;
+
+                        const title = (titleElem.textContent || titleElem).trim();
+
+                        // 商品名からキーワード抽出（名詞っぽい単語を抽出）
+                        const extracted = extractKeywordFromTitle(title);
+                        if (extracted && !keywords.includes(extracted)) {
+                            keywords.push(extracted);
+                        }
+
+                        if (keywords.length >= limit) break;
+                    }
+
+                    return keywords;
+
+                } catch (e) {
+                    console.error("ランキング取得エラー:", e);
+                    return [];
+                }
+            }
+
+            /* ============================================================
+            商品タイトルからキーワード抽出
+            ============================================================ */
+
+            function extractKeywordFromTitle(title) {
+                if (!title) return null;
+
+                // 記号で分割
+                let parts = title.split(/[\s・\-\[\]\(\)【】]/g);
+
+                // 長すぎる単語や短すぎる単語を除外
+                parts = parts.filter(p =>
+                    p.length >= 2 &&
+                    p.length <= 20 &&
+                    !p.match(/^\d+$/) &&         // 数字だけ
+                    !p.match(/^(Amazon|ランキング|ベストセラー)$/i)
+                );
+
+                // 最初の名詞っぽい単語を返す
+                return parts[0] || null;
+            }
+
+
+        /* ============================================================
+        🤖 AutoPosterManager v2.8（AI統合 × 完全自動化）
+        ============================================================ */
+
+        class AutoPosterManager {
+            constructor() {
+                this.isRunning = false;
+                this.currentKeywordIndex = 0;
+                this.currentProductIndex = 0;
+                this.keywords = [];
+                this.currentProducts = [];
+                this.interval = 30;
+                this.nextPostTime = null;
+                this.timerId = null;
+
+                this.stats = {
+                    totalPosts: 0,
+                    successPosts: 0,
+                    failedPosts: 0,
+                    startTime: null
+                };
+
+                this.initUIControls();
+            }
+
+            /* ------------------------------------
+            UI初期化
+            ------------------------------------ */
+            initUIControls() {
+                const autoModeCheckbox = document.getElementById("auto-mode-enabled");
+                const confirmTimeGroup = document.getElementById("confirm-time-group");
+
+                if (autoModeCheckbox) {
+                    autoModeCheckbox.addEventListener("change", e => {
+                        confirmTimeGroup.style.display = e.target.checked ? "block" : "none";
+                    });
+                }
+            }
+
+            /* ------------------------------------
+            自動投稿開始（v2.8 + Amazonランキング対応）
+            ------------------------------------ */
+            async start() {
+                const tag = document.getElementById("tag-auto").value.trim();
+                if (!tag) return this.log("❌ アソシエイトタグを入力してください", "error");
+
+                const useTrending = document.getElementById("auto-use-trending").checked;
+                const keywordText = document.getElementById("keyword-list").value.trim();
+
+                // -----------------------------
+                // ① キーワードリストが空 → Amazonランキングから取得
+                // -----------------------------
+                if (!keywordText && useTrending) {
+                    this.log("📊 Amazonランキングから人気ワード取得中...", "info");
+
+                    let keywords = await getTrendingKeywordsFromAmazon(10);
+
+                    if (keywords.length === 0) {
+                        this.log("⚠️ ランキング取得に失敗。デフォルトワードを使用します", "warning");
+                        keywords = getBalancedRandomKeywords(10);
+                    }
+
+                    this.keywords = keywords;
+                    this.log(`✨ 人気ワード ${keywords.length} 件を取得しました`, "success");
+
+                } else {
+                    // -----------------------------
+                    // ② 通常のキーワードリストを使用
+                    // -----------------------------
+                    this.keywords = keywordText
+                        .split("\n")
+                        .map(k => k.trim())
+                        .filter(k => k);
+                }
+
+                if (this.keywords.length === 0) {
+                    return this.log("❌ キーワードがありません", "error");
+                }
+
+                // 以下はそのまま（開始処理）
+                this.isRunning = true;
+                this.currentKeywordIndex = 0;
+                this.currentProductIndex = 0;
+                this.interval = parseInt(document.getElementById("post-interval").value);
+
+                this.stats = {
+                    totalPosts: 0,
+                    successPosts: 0,
+                    failedPosts: 0,
+                    startTime: new Date()
+                };
+
+                document.getElementById("auto-start-btn").style.display = "none";
+                document.getElementById("auto-stop-btn").style.display = "block";
+
+                this.log("🚀 自動投稿を開始しました", "success");
+
+                await this.processNext();
+            }
+
+            /* ------------------------------------
+            自動投稿停止
+            ------------------------------------ */
+            stop() {
+                this.isRunning = false;
+                if (this.timerId) clearTimeout(this.timerId);
+
+                document.getElementById("auto-start-btn").style.display = "block";
+                document.getElementById("auto-stop-btn").style.display = "none";
+
+                this.log("⛔ 自動投稿を停止しました", "warning");
+            }
+
+            /* ------------------------------------
+            次の投稿処理（AI統合）
+            ------------------------------------ */
+            async processNext() {
+                if (!this.isRunning) return;
+
+                const keyword = this.keywords[this.currentKeywordIndex];
+                this.log(`🔍 キーワード検索: ${keyword}`, "info");
+
+                try {
+                    // 商品検索（Workers版）
+                    if (this.currentProductIndex === 0 || this.currentProducts.length === 0) {
+                        this.currentProducts = await this.searchProductsWithWorkers(keyword);
+                        if (this.currentProducts.length === 0) {
+                            this.log("⚠️ 商品が見つかりませんでした", "warning");
+                            this.moveToNextKeyword();
+                            return this.scheduleNext();
+                        }
+                    }
+
+                    const product = this.currentProducts[this.currentProductIndex];
+                    this.log(`📦 商品取得: ${product.title.substring(0, 30)}…`, "info");
+
+                    // 🔥 AIで宣伝文生成（v2.8）
+                    const postText = await this.generatePostText(product);
+
+                    if (!postText) {
+                        this.log("❌ AI生成に失敗しました", "error");
+                        this.scheduleNext();
+                        return;
+                    }
+
+                    // 投稿
+                    this.openTwitterPost(postText);
+
+                    this.stats.totalPosts++;
+                    this.stats.successPosts++;
+
+                    this.log("🐦 投稿完了", "success");
+
+                    this.currentProductIndex++;
+
+                    // 次のキーワードへ
+                    if (this.currentProductIndex >= this.currentProducts.length) {
+                        this.moveToNextKeyword();
+                    }
+
+                    this.scheduleNext();
+
+                } catch (e) {
+                    this.log("❌ エラー: " + e.message, "error");
+                    this.stats.failedPosts++;
+                    this.scheduleNext();
+                }
+            }
+
+                    /* ------------------------------------
+            投稿文生成（AI ON/OFF 切り替え対応）
+            ------------------------------------ */
+            async generatePostText(product) {
+                const useAI = document.getElementById("auto-use-ai").checked;
+                const tag = document.getElementById("tag-auto").value.trim();
+
+                // ASIN → アフィリエイトURL
+                const asin = extractASIN(product.url);
+                const affiliateUrl = `https://www.amazon.co.jp/dp/${asin}?tag=${tag}`;
+                const shortUrl = await shortenUrl(affiliateUrl);
+
+                // -----------------------------
+                // ① AIを使う場合（OpenRouter）
+                // -----------------------------
+                if (useAI) {
+                    const apiKey = localStorage.getItem("openrouterApiKey");
+                    const model = document.getElementById("openrouter-model").value || "openrouter/free";
+
+                    if (!apiKey) {
+                        this.log("❌ OpenRouter APIキーが設定されていません", "error");
+                        return null;
+                    }
+
+                    const prompt = createAIPrompt_v27(product.url, shortUrl);
+
+                    try {
+                        const aiText = await callOpenRouterAPI(apiKey, prompt, model);
+                        return aiText.length > 180 ? aiText.substring(0, 177) + "…" : aiText;
+                    } catch (e) {
+                        this.log("❌ AI生成失敗: " + e.message, "error");
+                        return null;
+                    }
+                }
+
+                // -----------------------------
+                // ② AIを使わない場合（従来の投稿文）
+                // -----------------------------
+                const info = {
+                    title: product.title,
+                    price: product.price || "",
+                    rating: "",
+                    discount: ""
+                };
+
+                return createSimplePostText(info, shortUrl, "twitter");
+            }
+
+            /* ------------------------------------
+            Workers版 Amazon検索
+            ------------------------------------ */
+            async searchProductsWithWorkers(keyword) {
+                const url = `https://www.amazon.co.jp/s?k=${encodeURIComponent(keyword)}`;
+                const html = await fetchWithProxy(url);
+
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, "text/html");
+
+                const items = doc.querySelectorAll('[data-asin]');
+                const results = [];
+
+                for (let i = 0; i < Math.min(items.length, 5); i++) {
+                    const asin = items[i].getAttribute("data-asin");
+                    if (!asin) continue;
+
+                    const titleElem = items[i].querySelector("h2 a span");
+                    const title = titleElem ? titleElem.textContent.trim() : "商品名不明";
+
+                    results.push({
+                        asin,
+                        title,
+                        url: `https://www.amazon.co.jp/dp/${asin}`
+                    });
+                }
+
+                return results;
+            }
+
+            /* ------------------------------------
+            次のキーワードへ
+            ------------------------------------ */
+            moveToNextKeyword() {
+                this.currentProductIndex = 0;
+                this.currentKeywordIndex++;
+
+                if (this.currentKeywordIndex >= this.keywords.length) {
+                    this.currentKeywordIndex = 0;
+                }
+            }
+
+            /* ------------------------------------
+            次回投稿のスケジュール
+            ------------------------------------ */
+            scheduleNext() {
+                if (!this.isRunning) return;
+
+                this.nextPostTime = new Date(Date.now() + this.interval * 60000);
+                this.log(`⏳ 次の投稿まで ${this.interval} 分`, "info");
+
+                this.timerId = setTimeout(() => this.processNext(), this.interval * 60000);
+            }
+
+            /* ------------------------------------
+            X投稿画面を開く
+            ------------------------------------ */
+            openTwitterPost(text) {
+                const encoded = encodeURIComponent(text);
+                const autoMode = document.getElementById("auto-mode-enabled").checked;
+                const confirmTime = document.getElementById("confirm-time").value || "3";
+
+                let url = `https://twitter.com/intent/tweet?text=${encoded}`;
+
+                if (autoMode) {
+                    url += `&autopost=1&confirmtime=${confirmTime}`;
+                }
+
+                window.open(url, "_blank", "width=600,height=400");
+            }
+
+            /* ------------------------------------
+            ログ
+            ------------------------------------ */
+            log(message, type = "info") {
+                const logContainer = document.getElementById("auto-log");
+                const logContent = document.getElementById("log-content");
+
+                logContainer.style.display = "block";
+
+                const entry = document.createElement("div");
+                entry.textContent = message;
+
+                entry.style.color =
+                    type === "success" ? "#10a37f" :
+                    type === "error" ? "#f44336" :
+                    type === "warning" ? "#ff9800" :
+                    "#333";
+
+                logContent.appendChild(entry);
+                logContent.scrollTop = logContent.scrollHeight;
+            }
+        }
+
+        /* ------------------------------------
+        インスタンス生成
+        ------------------------------------ */
+        const autoPoster = new AutoPosterManager();
+        </script>
+
+    </div>
+</body>
+</html>
